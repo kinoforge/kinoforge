@@ -210,6 +210,11 @@ class ClipJobResponse(BaseModel):
         default=None, description="1 when it is next on its provider; only while queued."
     )
     video_b64: str = Field(default="", description="The clip (mp4), base64, once done.")
+    video_stored: str = Field(
+        default="",
+        description="Where the gateway stored the clip once done, in place of video_b64, for "
+        "the caller to copy into the user's storage without fetching it.",
+    )
     error: str = Field(default="", description="Why it failed, when it did.")
     observed_limit: int = Field(
         default=0,

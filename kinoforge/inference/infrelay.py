@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import time
 from typing import Any, Dict, List, Tuple
+from urllib.parse import urljoin
 
 import httpx
 
@@ -204,14 +205,16 @@ class InfrelayClient:
     def cancel_job(self, job_id: str) -> Dict[str, Any]:
         return self._jobs("DELETE", f"/v1/jobs/{job_id}")
 
-    def job_media(self, job: Dict[str, Any]) -> bytes:
-        """A finished job's media bytes; what it cost and its prompt rewrite are kept for the
+    def job_media(self, job: Dict[str, Any]) -> Tuple[str, bytes]:
+        """A finished job's media: the key the gateway stored it at (no bytes are fetched), or
+        its bytes when it was not stored; what it cost and its prompt rewrite are kept for the
         caller to bill."""
         result = job.get("result") or {}
         task = AITask(str(job.get("task") or result.get("task") or job.get("kind") or "video"))
         self._answered(task, ModelRef(str(job.get("provider") or ""), str(job.get("model") or "")),
                        result)
-        return self._bytes(result)
+        stored = str(result.get("stored") or "")
+        return (stored, b"") if stored else ("", self._bytes(result))
 
     def _jobs(
         self, method: str, path: str, *, body: Dict[str, Any] | None = None
@@ -279,17 +282,16 @@ class InfrelayClient:
             if style:
                 payload["enhance_style"] = style
 
-    @staticmethod
-    def _bytes(result: Dict[str, Any]) -> bytes:
+    def _bytes(self, result: Dict[str, Any]) -> bytes:
+        """The media a result carries; a link from the gateway's own root is read from it."""
         output = result.get("output") or {}
         kind = output.get("type")
         if kind == "b64":
             return base64.b64decode(output["value"])
         if kind == "url":
+            url = urljoin(f"{self._url}/", str(output["value"]))
             try:
-                response = InfrelayClient._http.get(
-                    str(output["value"]), timeout=600, follow_redirects=True
-                )
+                response = InfrelayClient._http.get(url, timeout=600, follow_redirects=True)
                 response.raise_for_status()
             except httpx.HTTPError as exc:
                 raise InfrelayError(f"could not fetch generated media: {exc}") from exc

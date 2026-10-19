@@ -186,7 +186,8 @@ class MediaRuntime:
 
     @InferenceCharges.reported
     def clip_job(self, owner: str, job_id: str) -> dict[str, object]:
-        """A queued clip now, with its bytes once it is done."""
+        """A queued clip now, once it is done with where the gateway stored it, or its
+        bytes."""
         infrelay = self._settings.infrelay(owner)
         job = infrelay.job(job_id)
         out: dict[str, object] = {
@@ -195,7 +196,11 @@ class MediaRuntime:
             "queue_position": job.get("queue_position"),
         }
         if job.get("status") == "done":
-            out["video_b64"] = base64.b64encode(infrelay.job_media(job)).decode()
+            stored, data = infrelay.job_media(job)
+            if stored:
+                out["video_stored"] = stored
+            else:
+                out["video_b64"] = base64.b64encode(data).decode()
             out["enhance"] = infrelay.rewrites
         elif job.get("error"):
             out["error"] = str(job["error"])

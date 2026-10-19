@@ -222,6 +222,22 @@ def test_a_queued_clip_is_submitted_with_its_prompt_and_read_back_when_done(monk
     assert done["enhance"] == [{"provider": "openrouter", "model": "m", "credits": 1}]
 
 
+def test_a_clip_the_gateway_stored_comes_back_as_its_key_not_its_bytes(monkeypatch):
+    stored = "videogpt-operation/generation/2026101912/job-9.mp4"
+    result = {"output": {"type": "url", "value": "/media/2026101912/job-9.mp4?sig=x"}}
+    fake(
+        monkeypatch,
+        "job",
+        lambda self, job_id: {"id": job_id, "status": "done", "result": {**result, "stored": stored}},
+    )
+    fake(monkeypatch, "_bytes", lambda self, result: pytest.fail("the clip was fetched"))
+
+    done = MediaRuntime(SETTINGS).clip_job("tenant-1", "job-9")
+
+    assert (done["status"], done["video_stored"]) == ("done", stored)
+    assert "video_b64" not in done
+
+
 def test_a_failed_clip_job_reports_the_prompt_ceiling_the_provider_declared(monkeypatch):
     error = "input.prompt: String length must be less than or equal to 2000"
     fake(
