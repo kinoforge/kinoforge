@@ -36,6 +36,24 @@ class LoggableRequest(BaseModel):
     log_level: Optional[str] = Field(default=None)
 
 
+class OperationRequest(LoggableRequest):
+    """A request that may run in the background: with a callback_url it is answered at once
+    (202) and its response is POSTed there when it ends."""
+
+    callback_url: Optional[str] = Field(
+        default=None,
+        max_length=2048,
+        description=(
+            "Run in the background and POST {status, result | error, status_code} here when "
+            "it ends. A url only the caller knows: kinoforge does not sign it."
+        ),
+    )
+
+
+class OperationAccepted(BaseModel):
+    status: Literal["accepted"] = "accepted"
+
+
 class EngineCompatibilityRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

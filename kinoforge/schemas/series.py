@@ -10,8 +10,8 @@ from kinoforge.schemas.common import (
     DefinitionBundleRequest,
     InferenceChargeResponse,
     LogEntryResponse,
-    LoggableRequest,
     MeterEventResponse,
+    OperationRequest,
 )
 
 
@@ -32,7 +32,7 @@ class SeriesContextRequest(BaseModel):
     )
 
 
-class SeriesPlanRequest(LoggableRequest):
+class SeriesPlanRequest(OperationRequest):
     job_id: str = Field(description="Caller-owned operation identifier.")
     idempotency_key: str = Field(
         default="", description="Optional caller key correlating this run (and retries) in logs."

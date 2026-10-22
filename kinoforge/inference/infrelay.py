@@ -18,14 +18,16 @@ class InfrelayError(RuntimeError):
 
 class InfrelayClient:
     """Client for the Infrelay POST /v1/inference/{task} contract (cloud Infrelay or
-    Infrelay-lite). Every call names its task; the pick says which model (or `auto`)."""
+    Infrelay-lite). Every call names its task; the pick says which model (or `auto`). A call
+    past Infrelay's timeout is read again at the link its 504 names until it ends."""
 
     # One connection pool for every call, so a story's many calls reuse warm connections
     # instead of paying a TCP and TLS handshake each.
     _http = httpx.Client(limits=httpx.Limits(max_connections=64, max_keepalive_connections=16))
-    # Seconds between reads of a queued call: the first, and the most it backs off to.
-    POLL_FIRST = 1.0
-    POLL_MOST = 10.0
+    # Seconds between reads of a late answer when Infrelay does not say (Retry-After).
+    READ_EVERY = 2.0
+    # The only links a late answer is read at, so the token goes nowhere else.
+    LATE_LINK = "/v1/requests/"
 
     def __init__(self, url: str, token: str = "", tenant: str = "") -> None:
         self._url = url.rstrip("/")
@@ -64,17 +66,18 @@ class InfrelayClient:
             log.warning(f"infrelay {task} {ref} unreachable: {exc}")
             raise InfrelayError(f"infrelay {task} {ref} unreachable: {exc}") from exc
         elapsed_ms = int((time.monotonic() - started) * 1000)
-        if response.status_code >= 400 and response.status_code != 409:
+        late = response.status_code == 504 and "retry_url" in response.text
+        if late:
+            log.debug(f"infrelay {task} {ref} answers late: reading its link", ms=elapsed_ms)
+            result = self._late(response.json(), started + timeout)
+        elif response.status_code >= 400:
             log.warning(f"infrelay {task} {ref} failed ({response.status_code}) in {elapsed_ms}ms",
                         status=response.status_code, body=response.text[:300])
             raise InfrelayError(
                 f"infrelay {task} {ref} failed ({response.status_code}): {response.text[:300]}"
             )
-        if response.status_code == 409:
-            # A model (or the machine it runs on) that only runs queued: queue it and wait.
-            log.debug(f"infrelay {task} {ref} runs queued: polling", detail=response.text[:200])
-            return self._queued(task, ref, payload, timeout=timeout)
-        result = response.json()
+        else:
+            result = response.json()
         self._answered(task, ref, result)
         log.debug(f"infrelay <- {task} {ref} {response.status_code} in {elapsed_ms}ms",
                   status=response.status_code, ms=elapsed_ms, served=self.served,
@@ -101,48 +104,28 @@ class InfrelayClient:
         if isinstance(rewrite, dict):
             self.rewrites.append(dict(rewrite))
 
-    def _queued(
-        self, task: AITask, ref: ModelRef, payload: Dict[str, Any], *, timeout: float
-    ) -> Dict[str, Any]:
-        """Queues the call and reads the job until it ends, no faster than infrelay allows
-        (its Retry-After)."""
-        body = self._body(ref, payload)
-        body["queue"] = True
-        job_id = str(self._jobs("POST", f"/v1/inference/{task.value}", body=body)["id"])
-        deadline = time.monotonic() + timeout
-        wait = self.POLL_FIRST
-        while True:
-            time.sleep(wait)
-            job, retry_after = self._read(job_id)
-            if retry_after is not None:
-                wait = retry_after
-                continue
-            status = job.get("status")
-            if status == "done":
-                result = dict(job.get("result") or {})
-                self._answered(task, ref, result)
-                return result
-            if status in ("error", "cancelled"):
-                raise InfrelayError(f"infrelay {task} {ref} failed: {job.get('error') or status}")
-            if time.monotonic() > deadline:
-                self.cancel_job(job_id)
-                raise InfrelayError(f"infrelay {task} {ref} did not finish within {timeout}s")
-            wait = min(wait * 1.5, self.POLL_MOST)
-
-    def _read(self, job_id: str) -> Tuple[Dict[str, Any], float | None]:
-        """The job, or how long infrelay asks to wait before reading it again."""
+    def _late(self, late: Dict[str, Any], deadline: float) -> Dict[str, Any]:
+        """A direct call's answer read at the link Infrelay's 504 named, until it ends or the
+        deadline passes."""
+        link = str(late["retry_url"])
+        if not link.startswith(self.LATE_LINK) or "@" in link:
+            raise InfrelayError(f"infrelay named an unexpected answer link: {link[:100]}")
         headers = {"Authorization": f"Bearer {self._token}"} if self._token else {}
-        try:
-            response = self._http.request(
-                "GET", f"{self._url}/v1/jobs/{job_id}", headers=headers, json=None, timeout=60
-            )
-        except httpx.HTTPError as exc:
-            raise InfrelayError(f"infrelay jobs unreachable: {exc}") from exc
-        if response.status_code == 429:
-            return {}, float(response.headers.get("Retry-After") or self.POLL_MOST)
-        if response.status_code >= 400:
-            raise InfrelayError(f"infrelay job read failed ({response.status_code})")
-        return response.json(), None
+        while True:
+            try:
+                response = self._http.get(f"{self._url}{link}", headers=headers, timeout=60)
+            except httpx.HTTPError as exc:
+                raise InfrelayError(f"infrelay unreachable reading {link}: {exc}") from exc
+            if response.status_code == 200:
+                return response.json()
+            if response.status_code not in (202, 429):
+                raise InfrelayError(
+                    f"infrelay {link} failed ({response.status_code}): {response.text[:300]}"
+                )
+            wait = float(response.headers.get("Retry-After") or self.READ_EVERY)
+            if time.monotonic() + wait > deadline:
+                raise InfrelayError(f"infrelay {link} did not answer in time")
+            time.sleep(wait)
 
     def text(
         self, task: AITask, ref: ModelRef, system: str, user: str, *, temperature: float,

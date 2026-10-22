@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from kinoforge.service.runtimes import MediaRuntime
 from kinoforge.schemas import (
     ImageRenderRequest,
     ImageRenderResponse,
     SeriesPlanRequest,
     SeriesPlanResponse,
 )
-from kinoforge.service.runtimes import SeriesRuntime
+from kinoforge.service.operations import Operations
+from kinoforge.service.runtimes import MediaRuntime, SeriesRuntime
 
 router = APIRouter(tags=["Series"])
 
@@ -25,9 +25,10 @@ router = APIRouter(tags=["Series"])
         "persists the series and creates the episodes the user approves."
     ),
     response_model=SeriesPlanResponse,
+    responses=Operations.RESPONSES,
 )
-def plan_series(request: SeriesPlanRequest) -> dict:
-    return SeriesRuntime.from_env().plan(request)
+def plan_series(request: SeriesPlanRequest):
+    return Operations.answer(request, lambda: SeriesRuntime.from_env().plan(request))
 
 
 @router.post(
@@ -38,8 +39,9 @@ def plan_series(request: SeriesPlanRequest) -> dict:
         "Stateless: caller stores and selects portrait."
     ),
     response_model=ImageRenderResponse,
+    responses=Operations.RESPONSES,
 )
-def render_series_portrait(request: ImageRenderRequest) -> dict:
+def render_series_portrait(request: ImageRenderRequest):
     if request.mode != "character":
         raise HTTPException(422, "Series portrait mode must be character")
-    return MediaRuntime.from_env().render_image(request)
+    return Operations.answer(request, lambda: MediaRuntime.from_env().render_image(request))

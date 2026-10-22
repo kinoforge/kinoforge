@@ -14,6 +14,7 @@ from kinoforge.schemas.common import (
     InferenceChargeResponse,
     LogEntryResponse,
     LoggableRequest,
+    OperationRequest,
 )
 from kinoforge.segments.clips.render.media import AspectRatio, FillStyle, MasterQuality
 
@@ -45,7 +46,7 @@ class ImageOptionsRequest(BaseModel):
     )
 
 
-class ImageRenderRequest(LoggableRequest):
+class ImageRenderRequest(OperationRequest):
     job_id: str = Field(description="Caller-owned execution identifier.")
     idempotency_key: str = Field(
         default="", description="Optional caller key correlating this run (and retries) in logs."
@@ -229,7 +230,7 @@ class ClipJobResponse(BaseModel):
     )
 
 
-class MusicRenderRequest(LoggableRequest):
+class MusicRenderRequest(OperationRequest):
     job_id: str = Field(description="Caller-owned execution identifier.")
     idempotency_key: str = Field(
         default="", description="Optional caller key correlating this run (and retries) in logs."
@@ -265,7 +266,7 @@ class VoiceOptionsRequest(BaseModel):
     language: str = ""
 
 
-class VoiceRenderRequest(LoggableRequest):
+class VoiceRenderRequest(OperationRequest):
     job_id: str
     idempotency_key: str = Field(
         default="", description="Optional caller key correlating this run (and retries) in logs."

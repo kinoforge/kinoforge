@@ -23,6 +23,8 @@ from kinoforge.schemas.common import (
     MediaMetadataResponse,
     MediaOperationResponse,
     MeterEventResponse,
+    OperationAccepted,
+    OperationRequest,
     PathRequest,
 )
 from kinoforge.schemas.discovery import (
@@ -76,7 +78,7 @@ __all__ = [
     "ExecutionState", "PathRequest", "HealthResponse", "MeterEventResponse",
     "LogEntryResponse", "ArtifactResponse", "ExecutionResultResponse",
     "ExecutionStateResponse", "MediaMetadataResponse", "MediaOperationResponse",
-    "CancellationResponse", "AlignmentResponse",
+    "CancellationResponse", "AlignmentResponse", "OperationRequest", "OperationAccepted",
     # discovery
     "SegmentStatus", "SegmentFeatureResponse", "SegmentDefinitionRequirementResponse",
     "SegmentResponse", "SegmentsResponse",

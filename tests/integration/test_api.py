@@ -156,3 +156,66 @@ def test_alignment_falls_back_to_even_timing_when_infrelay_fails(client, monkeyp
     assert r.json()["segments"] == []
     words = [word["word"] for word in r.json()["aligned"][0]["words"]]
     assert words == ["Keep", "generated", "voiceover"]
+
+
+# --- background requests --------------------------------------------------------------------
+
+
+def test_a_render_naming_a_callback_answers_at_once_and_posts_its_response(client, monkeypatch):
+    import json
+
+    from kinoforge.service import operations
+    from kinoforge.service.runtimes import MediaRuntime
+
+    posted = []
+    monkeypatch.setattr(operations.Operations, "_pool", _Inline())
+    monkeypatch.setattr(operations.Operations, "_http", _Recorder(posted))
+    monkeypatch.setattr(MediaRuntime, "render_voice", lambda self, request: {"audio_b64": "QQ=="})
+    body = {"job_id": "j", "text": "hello", "callback_url": "http://core/ops/1/secret"}
+
+    r = client.post("/v1/segments/story/media/voice", json=body)
+
+    assert r.status_code == 202 and r.json() == {"status": "accepted"}
+    [(url, raw, headers)] = posted
+    assert url == "http://core/ops/1/secret"
+    assert json.loads(raw) == {"status": "done", "result": {"audio_b64": "QQ=="}}
+    assert headers == {"Content-Type": "application/json"}
+
+
+def test_a_background_failure_is_posted_as_its_error(client, monkeypatch):
+    import json
+
+    from kinoforge.inference import InfrelayError
+    from kinoforge.service import operations
+    from kinoforge.service.runtimes import MediaRuntime
+
+    posted = []
+    monkeypatch.setattr(operations.Operations, "_pool", _Inline())
+    monkeypatch.setattr(operations.Operations, "_http", _Recorder(posted))
+
+    def fails(self, request):
+        raise InfrelayError("infrelay audio failed (502): down")
+
+    monkeypatch.setattr(MediaRuntime, "render_voice", fails)
+    body = {"job_id": "j", "text": "hello", "callback_url": "http://core/ops/1/secret"}
+
+    assert client.post("/v1/segments/story/media/voice", json=body).status_code == 202
+    outcome = json.loads(posted[0][1])
+    assert (outcome["status"], outcome["status_code"]) == ("error", 502)
+    assert "down" in outcome["error"]
+
+
+class _Inline:
+    def submit(self, fn, *args):
+        fn(*args)
+
+
+class _Recorder:
+    def __init__(self, posted):
+        self.posted = posted
+
+    def post(self, url, content, headers):
+        self.posted.append((url, content, headers))
+        from types import SimpleNamespace
+
+        return SimpleNamespace(status_code=202)

@@ -11,8 +11,8 @@ from kinoforge.schemas.common import (
     DefinitionBundleRequest,
     InferenceChargeResponse,
     LogEntryResponse,
-    LoggableRequest,
     MeterEventResponse,
+    OperationRequest,
 )
 
 
@@ -36,7 +36,7 @@ class StoryContextRequest(BaseModel):
     mature: bool = False
 
 
-class StoryWriteRequest(LoggableRequest):
+class StoryWriteRequest(OperationRequest):
     job_id: str = Field(description="Caller-owned execution identifier.")
     idempotency_key: str = Field(
         default="", description="Optional caller key correlating this run (and retries) in logs."
@@ -79,7 +79,7 @@ class StoryOperation(StrEnum):
     SUGGEST_FIELD = "suggest_field"
 
 
-class StoryOperationRequest(LoggableRequest):
+class StoryOperationRequest(OperationRequest):
     job_id: str = Field(description="Caller-owned operation identifier.")
     idempotency_key: str = Field(
         default="", description="Optional caller key correlating this run (and retries) in logs."

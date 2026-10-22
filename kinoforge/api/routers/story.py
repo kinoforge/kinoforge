@@ -24,6 +24,7 @@ from kinoforge.schemas import (
     VoiceRenderResponse,
 )
 from kinoforge.service.executions import executions
+from kinoforge.service.operations import Operations
 from kinoforge.service.runtimes import MediaRuntime, StoryRuntime
 
 router = APIRouter(tags=["Story"])
@@ -38,10 +39,14 @@ router = APIRouter(tags=["Story"])
         "events and logs. Stateless: the caller persists the story on its project record."
     ),
     response_model=StoryWriteResponse,
+    responses=Operations.RESPONSES,
 )
-def write_story(request: StoryWriteRequest) -> dict:
-    with executions.running(request.job_id) as control:
-        return StoryRuntime.from_env().write(request, is_cancelled=control.is_cancelled)
+def write_story(request: StoryWriteRequest):
+    def run() -> dict:
+        with executions.running(request.job_id) as control:
+            return StoryRuntime.from_env().write(request, is_cancelled=control.is_cancelled)
+
+    return Operations.answer(request, run)
 
 
 @router.post(
@@ -52,9 +57,10 @@ def write_story(request: StoryWriteRequest) -> dict:
         "rewrite_characters, translate, or direct_shots. Caller persists returned changes."
     ),
     response_model=StoryOperationResponse,
+    responses=Operations.RESPONSES,
 )
-def operate_story(request: StoryOperationRequest) -> dict:
-    return StoryRuntime.from_env().operate(request)
+def operate_story(request: StoryOperationRequest):
+    return Operations.answer(request, lambda: StoryRuntime.from_env().operate(request))
 
 
 @router.post(
@@ -66,9 +72,10 @@ def operate_story(request: StoryOperationRequest) -> dict:
         "composes reference sheets, places assets, and bills."
     ),
     response_model=ImageRenderResponse,
+    responses=Operations.RESPONSES,
 )
-def render_image(request: ImageRenderRequest) -> dict:
-    return MediaRuntime.from_env().render_image(request)
+def render_image(request: ImageRenderRequest):
+    return Operations.answer(request, lambda: MediaRuntime.from_env().render_image(request))
 
 
 @router.post(
@@ -129,9 +136,10 @@ def cancel_clip_job(job_id: str, owner: str = "") -> dict:
         "gateway, and returns the audio bytes. Stateless: the caller stores the track and bills."
     ),
     response_model=MusicRenderResponse,
+    responses=Operations.RESPONSES,
 )
-def render_music(request: MusicRenderRequest) -> dict:
-    return MediaRuntime.from_env().render_music(request)
+def render_music(request: MusicRenderRequest):
+    return Operations.answer(request, lambda: MediaRuntime.from_env().render_music(request))
 
 
 @router.post(
@@ -142,9 +150,10 @@ def render_music(request: MusicRenderRequest) -> dict:
         "aligns captions, updates project progress, and bills."
     ),
     response_model=VoiceRenderResponse,
+    responses=Operations.RESPONSES,
 )
-def render_voice(request: VoiceRenderRequest) -> dict:
-    return MediaRuntime.from_env().render_voice(request)
+def render_voice(request: VoiceRenderRequest):
+    return Operations.answer(request, lambda: MediaRuntime.from_env().render_voice(request))
 
 
 @router.post(

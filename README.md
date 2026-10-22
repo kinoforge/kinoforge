@@ -32,6 +32,17 @@ docker run --rm -p 8100:8100 \
 
 Inference runs through `INFRELAY_URL`. Kinoforge runs on a trusted internal network reachable only by the caller; it has no auth of its own.
 
+## Background requests
+
+A story, image, music, voice or series request that names a `callback_url` is answered at once
+with `202 {"status": "accepted"}`. The work runs in the background and its answer is POSTed to
+the callback url as `{"status": "done", "result"}` or `{"status": "error", "error",
+"status_code"}`, sent again after growing pauses while the caller answers 5xx. The url is the
+caller's to make unguessable; kinoforge holds no secret for it.
+
+An inference call past the gateway's timeout is read again at the link its 504 names until it
+answers.
+
 ## API
 
 - `GET /health`, `GET /docs`, `GET /redoc`, `GET /openapi.json`

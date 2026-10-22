@@ -196,37 +196,32 @@ def test_a_clip_is_queued_with_a_callback_url_and_the_video_payload(monkeypatch)
     assert (get, job_url) == ("GET", "http://gw/v1/jobs/job-1")
 
 
-def test_a_call_that_runs_only_queued_is_queued_and_read_until_done(monkeypatch):
+TRANSCRIPT = {"type": "transcript", "value": "hi", "meta": {"segments": [{"text": "hi"}]}}
+WHISPERED = {"provider": "whisper", "model": "turbo", "kind": "transcribe",
+             "output": TRANSCRIPT, "usage": {"credits": 24, "units": 3}}
+
+
+def test_a_direct_call_past_the_gateways_timeout_is_read_at_its_link(monkeypatch):
     from kinoforge.inference.charges import InferenceCharges
 
     calls = []
-    transcript = {"type": "transcript", "value": "hi", "meta": {"segments": [{"text": "hi"}]}}
-    replies = {
-        "POST": [SimpleNamespace(status_code=409, text="runs only as a queued job",
-                                 json=lambda: {})],
-        "QUEUE": [SimpleNamespace(status_code=202, json=lambda: {"id": "job-9"})],
-        "GET": [
-            SimpleNamespace(status_code=429, headers={"Retry-After": "0"}),
-            SimpleNamespace(status_code=200, headers={}, json=lambda: {"status": "running"}),
-            SimpleNamespace(status_code=200, headers={}, json=lambda: {
-                "status": "done", "task": "viralClip.transcribe",
-                "result": {"provider": "whisper", "model": "turbo", "kind": "transcribe",
-                           "output": transcript, "usage": {"credits": 24, "units": 3}},
-            }),
-        ],
-    }
+    late = {"request_id": "r9", "retry_url": "/v1/requests/r9"}
+    reads = [
+        SimpleNamespace(status_code=429, headers={"Retry-After": "0"}, text=""),
+        SimpleNamespace(status_code=202, headers={"Retry-After": "0"}, text=""),
+        SimpleNamespace(status_code=200, headers={}, text="", json=lambda: WHISPERED),
+    ]
 
     def post(url, headers, json, timeout):
-        calls.append(("POST", url, json))
-        return replies["POST"].pop(0)
+        calls.append(("POST", url))
+        return SimpleNamespace(status_code=504, text=str(late), json=lambda: late)
 
-    def request(method, url, headers, json, timeout):
-        calls.append((method, url, json))
-        return replies["QUEUE" if method == "POST" else "GET"].pop(0)
+    def get(url, headers, timeout):
+        calls.append(("GET", url))
+        return reads.pop(0)
 
     monkeypatch.setattr(infrelay_module.InfrelayClient, "_http",
-                        SimpleNamespace(post=post, request=request))
-    monkeypatch.setattr(infrelay_module.InfrelayClient, "POLL_FIRST", 0)
+                        SimpleNamespace(post=post, get=get))
     monkeypatch.setattr(infrelay_module.time, "sleep", lambda seconds: None)
 
     with InferenceCharges.collect() as charges:
@@ -235,10 +230,26 @@ def test_a_call_that_runs_only_queued_is_queued_and_read_until_done(monkeypatch)
         )
 
     assert segments == [{"text": "hi"}]
-    assert calls[1][2]["queue"] is True
-    assert [c[0] for c in calls] == ["POST", "POST", "GET", "GET", "GET"]
-    assert charges == [{"task": "viralClip.transcribe", "kind": "transcribe", "provider": "whisper",
-                        "model": "turbo", "credits": 24, "byok": False, "units": 3}]
+    assert calls == [("POST", "http://gw/v1/inference/viralClip.transcribe")] + [
+        ("GET", "http://gw/v1/requests/r9")
+    ] * 3
+    assert charges[0]["credits"] == 24
+
+
+def test_a_late_answer_is_read_only_at_an_answer_link(monkeypatch):
+    late = {"request_id": "r9", "retry_url": "@elsewhere.example/steal"}
+
+    def post(url, headers, json, timeout):
+        return SimpleNamespace(status_code=504, text=str(late), json=lambda: late)
+
+    def get(url, headers, timeout):
+        raise AssertionError(f"read {url}")
+
+    monkeypatch.setattr(infrelay_module.InfrelayClient, "_http",
+                        SimpleNamespace(post=post, get=get))
+
+    with pytest.raises(InfrelayError, match="unexpected answer link"):
+        InfrelayClient("http://gw", "tok").speech(AITask.STORY_VOICE, ModelRef("edge", "v"), "hi")
 
 
 def test_every_answered_call_is_reported_with_its_price(monkeypatch):
