@@ -30,7 +30,8 @@ docker run --rm -p 8100:8100 \
   kinoforge
 ```
 
-Inference runs through `INFRELAY_URL`. Kinoforge runs on a trusted internal network reachable only by the caller; it has no auth of its own.
+Inference runs through `INFRELAY_URL`, with `INFRELAY_SERVICE_TOKEN` when the gateway asks for
+one. Kinoforge runs on a trusted internal network reachable only by the caller; it has no auth of its own.
 
 ## Background requests
 

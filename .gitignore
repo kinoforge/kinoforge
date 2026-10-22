@@ -5,3 +5,4 @@ docs/
 .mypy_cache/
 ./DESIGN.md
 DESIGN.md
+.env
