@@ -67,3 +67,8 @@ Moment finding is config-only:
 
 `log_level` on the request sets that run's console verbosity; unset uses `KINOFORGE_LOG_LEVEL`
 (default `error`). Returned `logs` are complete regardless.
+
+## License
+
+Source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE): free for personal
+and other noncommercial use. For commercial use, see [videogpt.dev](https://videogpt.dev).

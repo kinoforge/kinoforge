@@ -135,14 +135,14 @@ def _finder(config):
 
 def test_ai_route_builds_the_ai_finder_named_by_route():
     finder = _finder({**_CONFIG, "moment_finder": "auto",
-                      "moment_route": {"provider": "cloud", "model": "auto"}})
+                      "moment_route": {"provider": "videogpt", "model": "auto"}})
     assert isinstance(finder, AiMomentFinder)
-    assert finder.name == "cloud/auto"
+    assert finder.name == "videogpt/auto"
 
 
 def test_offline_finder_builds_the_offline_finder_even_with_a_route():
     finder = _finder({**_CONFIG, "moment_finder": "offline",
-                      "moment_route": {"provider": "cloud", "model": "auto"}})
+                      "moment_route": {"provider": "videogpt", "model": "auto"}})
     assert isinstance(finder, OfflineMomentFinder)
 
 
