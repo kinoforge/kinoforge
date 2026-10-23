@@ -42,7 +42,9 @@ class StoryQualityGate:
             if not (scene.get("narration") or "").strip()
         ]
         if silent:
-            blocking.append(f"scenes {', '.join(silent)} have no narration")
+            blocking.append(
+                f"{self._scenes(silent)} {'has' if len(silent) == 1 else 'have'} no narration"
+            )
 
         if not (self._story.get("logline") or "").strip():
             advisory.append("logline is missing")
@@ -57,6 +59,10 @@ class StoryQualityGate:
             if self._VISIBLE_TEXT_RE.search(str(scene.get("prompt") or ""))
         ]
         if text_prompts:
-            advisory.append(f"scene prompts {', '.join(text_prompts)} may render on-screen text")
+            advisory.append(f"{self._scenes(text_prompts)} may render on-screen text")
 
         return blocking, advisory
+
+    @staticmethod
+    def _scenes(numbers: list[str]) -> str:
+        return f"scene {numbers[0]}" if len(numbers) == 1 else f"scenes {', '.join(numbers)}"

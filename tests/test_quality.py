@@ -26,7 +26,7 @@ def test_clean_story_has_no_findings():
 def test_silent_scene_is_blocking():
     story = {"logline": "x", "style": "y", "scenes": [{"narration": "  "}, {"narration": "ok"}]}
     blocking, _ = validate_story(story, {})
-    assert blocking == ["scenes 1 have no narration"]
+    assert blocking == ["scene 1 has no narration"]
 
 
 def test_missing_logline_and_style_are_advisory():
