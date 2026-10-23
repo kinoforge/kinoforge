@@ -1,5 +1,10 @@
 # Kinoforge
 
+[![Website](https://img.shields.io/badge/website-videogpt.dev-7c3aed)](https://videogpt.dev)
+[![License](https://img.shields.io/badge/license-PolyForm%20NC%201.0.0-blue)](LICENSE)
+[![Last commit](https://img.shields.io/github/last-commit/videogpt-dev/kinoforge)](https://github.com/videogpt-dev/kinoforge/commits/main)
+![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)
+
 The generation engine behind VideoGPT. It runs the clip, story, and series pipelines and is
 driven over REST.
 
