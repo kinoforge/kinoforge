@@ -166,8 +166,9 @@ class InfrelayClient:
         return self._bytes(self._infer(task, ref, payload, timeout=1000))
 
     def video(self, task: AITask, ref: ModelRef, prompt: str, spec: VideoSpec) -> bytes:
-        """Video (mp4) bytes. A native-audio model voices `dialogue` itself; `music` toggles a
-        non-diegetic score. Providers without their own audio ignore both."""
+        """Video (mp4) bytes. A native-audio model voices `dialogue` itself, said on camera by
+        `speaker` when one is named; `music` toggles a non-diegetic score. Providers without
+        their own audio ignore all three."""
         payload = self._video_payload(prompt, spec)
         return self._bytes(self._infer(task, ref, payload, timeout=1800))
 
@@ -226,6 +227,8 @@ class InfrelayClient:
         self._add_enhance(payload, spec.enhance, spec.enhance_style)
         if spec.dialogue:
             payload["dialogue"] = spec.dialogue
+            if spec.speaker:
+                payload["speaker"] = spec.speaker
         if not spec.music:
             payload["music"] = False
         return payload

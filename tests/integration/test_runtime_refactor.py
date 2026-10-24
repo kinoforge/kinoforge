@@ -67,10 +67,11 @@ def test_image_payload_comes_from_the_spec(monkeypatch):
 
 def test_video_payload_carries_dialogue_and_music_off(monkeypatch):
     sent = _capture(monkeypatch, {"type": "b64", "value": base64.b64encode(b"mp4").decode()})
-    spec = VideoSpec(seconds=5, resolution=720, aspect_ratio="9:16", dialogue="hi", music=False)
+    spec = VideoSpec(seconds=5, resolution=720, aspect_ratio="9:16", dialogue="hi",
+                     speaker="Maya", music=False)
     InfrelayClient("http://gw").video(AITask.STORY_VIDEO, ModelRef("fal"), "walk", spec)
     payload = sent[0]["input"]
-    assert (payload["dialogue"], payload["music"]) == ("hi", False)
+    assert (payload["dialogue"], payload["speaker"], payload["music"]) == ("hi", "Maya", False)
     assert sent[0]["inference"] == {"model": "auto", "provider": "fal"}  # the provider's route
 
 

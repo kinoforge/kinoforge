@@ -107,6 +107,7 @@ class VideoSpec:
     enhance: bool = False
     enhance_style: str = ""
     dialogue: str = ""
+    speaker: str = ""
     music: bool = True
 
 

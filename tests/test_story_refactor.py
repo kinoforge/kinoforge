@@ -121,6 +121,13 @@ def test_native_audio_scene_sends_dialogue_and_mutes_music():
     assert (spec.dialogue, spec.music) == ("hello", False)
 
 
+def test_native_audio_scene_names_its_on_camera_speaker():
+    spec = _clip_spec(
+        {"prompt": "x", "audio_mode": "native", "narration": "hi", "speaker": " Maya "}
+    )
+    assert (spec.dialogue, spec.speaker) == ("hi", "Maya")
+
+
 def test_voiceover_scene_keeps_music_and_no_dialogue():
     spec = _clip_spec({"prompt": "x", "narration": "hello"})
     assert (spec.dialogue, spec.music) == ("", True)

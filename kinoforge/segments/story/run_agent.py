@@ -29,6 +29,12 @@ class StoryShape:
             return value.strip().lower() not in cls.FALSE_WORDS
         return bool(value)
 
+    @staticmethod
+    def speaker(scene: dict, names: set[str]) -> str:
+        """Who says the scene's narration on camera: someone in the cast, else no one."""
+        name = clean_text(scene.get("speaker"))
+        return name if name in names else ""
+
     @classmethod
     def normalize(cls, raw: dict) -> dict:
         characters = [
@@ -40,11 +46,13 @@ class StoryShape:
             if isinstance(character, dict)
             and (character.get("name") or character.get("description"))
         ]
+        names = {character["name"] for character in characters if character["name"]}
         scenes = [
             {
                 "prompt": clean_text(scene.get("prompt")),
                 "narration": clean_text(scene.get("narration")),
                 "motion": cls.flag(scene.get("motion")),
+                "speaker": cls.speaker(scene, names),
             }
             for scene in (raw.get("scenes") or [])
             if isinstance(scene, dict) and clean_text(scene.get("prompt"))

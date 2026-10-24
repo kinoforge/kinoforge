@@ -115,9 +115,11 @@ class ClipMaker:
         self, scene: dict, story: dict, motion: str, spec: VideoSpec, limit: int
     ) -> tuple[str, VideoSpec]:
         """The prompt and spec one clip runs with. A native-audio scene voices its own
-        dialogue: the spoken words go to the provider as structured `dialogue`, and music is
-        turned off so speech stays clear."""
+        dialogue: the spoken words go to the provider as structured `dialogue`, said on camera
+        by the scene's `speaker` when it names one, and music is turned off so speech stays
+        clear."""
         dialogue = self._spoken_line(scene)
         if dialogue:
-            spec = replace(spec, dialogue=dialogue, music=False)
+            speaker = (scene.get("speaker") or "").strip()
+            spec = replace(spec, dialogue=dialogue, speaker=speaker, music=False)
         return self.video_prompt(scene, scene.get("shot") or {}, story, motion, limit), spec

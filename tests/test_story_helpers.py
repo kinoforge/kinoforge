@@ -56,6 +56,18 @@ def test_normalize_drops_promptless_scenes_and_coerces_motion():
     assert out["scenes"][0]["motion"] is True
 
 
+def test_normalize_keeps_only_a_cast_member_as_speaker():
+    raw = {
+        "characters": [{"name": "Maya", "description": "d"}],
+        "scenes": [
+            {"prompt": "p", "narration": "n", "speaker": "Maya"},
+            {"prompt": "p", "narration": "n", "speaker": "Narrator"},
+            {"prompt": "p", "narration": "n"},
+        ],
+    }
+    assert [s["speaker"] for s in StoryShape.normalize(raw)["scenes"]] == ["Maya", "", ""]
+
+
 # --- StoryOperations static helpers ---------------------------------------
 
 def test_clean_strips_dashes_and_whitespace():
