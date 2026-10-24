@@ -75,6 +75,16 @@ def test_video_payload_carries_dialogue_and_music_off(monkeypatch):
     assert sent[0]["inference"] == {"model": "auto", "provider": "fal"}  # the provider's route
 
 
+def test_video_payload_carries_the_first_frame_and_reference_images(monkeypatch):
+    sent = _capture(monkeypatch, {"type": "b64", "value": base64.b64encode(b"mp4").decode()})
+    spec = VideoSpec(seconds=5, resolution=720, aspect_ratio="9:16", image=b"still",
+                     references=(b"sheet",))
+    InfrelayClient("http://gw").video(AITask.STORY_VIDEO, ModelRef("salad", "h3"), "walk", spec)
+    payload = sent[0]["input"]
+    assert payload["reference_b64"] == base64.b64encode(b"still").decode()
+    assert payload["ref_images_b64"] == [base64.b64encode(b"sheet").decode()]
+
+
 def test_a_pick_with_fallbacks_reaches_the_gateway_as_is(monkeypatch):
     sent = _capture(monkeypatch, {"type": "text", "value": "ok"})
     ref = ModelRef.from_mapping(

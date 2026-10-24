@@ -158,6 +158,11 @@ class VideoRenderRequest(LoggableRequest):
     pick: Dict[str, Any] = Field(default_factory=dict, description=PICK_DESCRIPTION)
     options: VideoOptionsRequest = Field(description="Clip duration and framing.")
     image_b64: str = Field(default="", description="Optional seed still image, base64 encoded.")
+    ref_images_b64: List[str] = Field(
+        default_factory=list,
+        description="Optional images whose characters the clip keeps (a character sheet), "
+        "base64 encoded.",
+    )
     prompt_limit: int = Field(
         default=0, ge=0,
         description="Provider prompt-length ceiling resolved by the caller; 0 when unknown.",

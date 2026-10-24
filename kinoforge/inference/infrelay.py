@@ -248,6 +248,8 @@ class InfrelayClient:
         }
         if spec.image is not None:
             payload["reference_b64"] = base64.b64encode(spec.image).decode()
+        if spec.references:
+            payload["ref_images_b64"] = [base64.b64encode(ref).decode() for ref in spec.references]
         self._add_enhance(payload, spec.enhance, spec.enhance_style)
         if spec.dialogue:
             payload["dialogue"] = spec.dialogue

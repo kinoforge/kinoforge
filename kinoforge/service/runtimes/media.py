@@ -36,6 +36,16 @@ class MediaUtils:
     def decode(value: str | None) -> bytes | None:
         return base64.b64decode(value) if value else None
 
+    @classmethod
+    def clip_spec(cls, request: VideoRenderRequest) -> VideoSpec:
+        opts = request.options
+        return VideoSpec(
+            seconds=opts.seconds, resolution=opts.resolution, aspect_ratio=opts.aspect_ratio,
+            mature=opts.mature, image=cls.decode(request.image_b64), enhance=opts.enhance,
+            enhance_style=opts.enhance_style,
+            references=tuple(base64.b64decode(ref) for ref in request.ref_images_b64 if ref),
+        )
+
     @staticmethod
     def no_media(*_args: Any) -> bytes:
         return b""
@@ -143,12 +153,7 @@ class MediaRuntime:
             generate_video=partial(infrelay.video, AITask.STORY_VIDEO), ceiling=ceiling
         )
         story, scene, rec = dict(request.story), dict(request.scene), dict(request.rec)
-        opts = request.options
-        spec = VideoSpec(
-            seconds=opts.seconds, resolution=opts.resolution, aspect_ratio=opts.aspect_ratio,
-            mature=opts.mature, image=MediaUtils.decode(request.image_b64), enhance=opts.enhance,
-            enhance_style=opts.enhance_style,
-        )
+        spec = MediaUtils.clip_spec(request)
         motion = self._motion(self._presets(request), maker, scene, story, rec)
         data = maker.generate_clip(scene, story, motion, ModelRef.from_mapping(request.pick), spec)
         logger.success("video render done", bytes=len(data), observed_limit=ceiling.learned)
@@ -169,12 +174,7 @@ class MediaRuntime:
         infrelay = self._settings.infrelay(request.owner)
         maker = ClipMaker(generate_video=MediaUtils.no_media, ceiling=PromptCeiling())
         story, scene, rec = dict(request.story), dict(request.scene), dict(request.rec)
-        opts = request.options
-        spec = VideoSpec(
-            seconds=opts.seconds, resolution=opts.resolution, aspect_ratio=opts.aspect_ratio,
-            mature=opts.mature, image=MediaUtils.decode(request.image_b64), enhance=opts.enhance,
-            enhance_style=opts.enhance_style,
-        )
+        spec = MediaUtils.clip_spec(request)
         motion = self._motion(self._presets(request), maker, scene, story, rec)
         prompt, spec = maker.clip_call(scene, story, motion, spec, request.prompt_limit)
         job_id = infrelay.submit_video(

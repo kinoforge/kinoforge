@@ -109,6 +109,7 @@ class VideoSpec:
     dialogue: str = ""
     speaker: str = ""
     music: bool = True
+    references: Tuple[bytes, ...] = ()
 
 
 class JobKind(StrEnum):
