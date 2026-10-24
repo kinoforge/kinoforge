@@ -16,6 +16,11 @@ class InfrelayError(RuntimeError):
     pass
 
 
+class InfrelayLimited(InfrelayError):
+    """Infrelay took no more of this tenant's calls for now (429): send it again once earlier
+    ones end."""
+
+
 class InfrelayClient:
     """Client for the Infrelay POST /v1/inference/{task} contract (cloud Infrelay or
     Infrelay-lite). Every call names its task; the pick says which model (or `auto`). A call
@@ -58,13 +63,7 @@ class InfrelayClient:
                   payload=shape(payload, max_depth=2))
         log.trace(f"infrelay {task} input", **shape(payload, max_depth=1))
         started = time.monotonic()
-        try:
-            response = self._http.post(
-                url, headers=headers, json=self._body(ref, payload), timeout=timeout
-            )
-        except httpx.HTTPError as exc:
-            log.warning(f"infrelay {task} {ref} unreachable: {exc}")
-            raise InfrelayError(f"infrelay {task} {ref} unreachable: {exc}") from exc
+        response = self._admitted(task, ref, url, headers, payload, started + timeout)
         elapsed_ms = int((time.monotonic() - started) * 1000)
         late = response.status_code == 504 and "retry_url" in response.text
         if late:
@@ -84,6 +83,30 @@ class InfrelayClient:
                   output_type=(result.get("output") or {}).get("type"),
                   request_id=result.get("request_id"))
         return result
+
+    def _admitted(
+        self, task: AITask, ref: ModelRef, url: str, headers: Dict[str, str],
+        payload: Dict[str, Any], deadline: float,
+    ) -> httpx.Response:
+        """Infrelay's answer to the call. While it takes no more of the tenant's calls (429)
+        the call is sent again after its Retry-After, until the deadline; past it the call is
+        InfrelayLimited."""
+        while True:
+            try:
+                response = self._http.post(
+                    url, headers=headers, json=self._body(ref, payload),
+                    timeout=max(1.0, deadline - time.monotonic()),
+                )
+            except httpx.HTTPError as exc:
+                active().warning(f"infrelay {task} {ref} unreachable: {exc}")
+                raise InfrelayError(f"infrelay {task} {ref} unreachable: {exc}") from exc
+            if response.status_code != 429:
+                return response
+            wait = float(response.headers.get("Retry-After") or self.READ_EVERY)
+            if time.monotonic() + wait > deadline:
+                raise InfrelayLimited(f"infrelay {task} {ref}: {response.text[:300]}")
+            active().debug(f"infrelay {task} {ref} is full for this tenant: again in {wait}s")
+            time.sleep(wait)
 
     def _answered(self, task: AITask, ref: ModelRef, result: Dict[str, Any]) -> None:
         """Notes who served a call, what it cost (for the caller to bill) and its rewrite."""
@@ -211,8 +234,9 @@ class InfrelayClient:
                                           json=body, timeout=60)
         except httpx.HTTPError as exc:
             raise InfrelayError(f"infrelay jobs unreachable: {exc}") from exc
+        failed = InfrelayLimited if response.status_code == 429 else InfrelayError
         if response.status_code >= 400:
-            raise InfrelayError(
+            raise failed(
                 f"infrelay job {method} failed ({response.status_code}): {response.text[:300]}"
             )
         return response.json()

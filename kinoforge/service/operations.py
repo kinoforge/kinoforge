@@ -2,7 +2,8 @@
 
 A request naming a callback_url (OperationRequest) is answered at once with 202 and run on a
 pool; when it ends its response, or its error, is POSTed to the callback_url and sent again
-after growing pauses while the caller cannot take it. The url is the caller's: kinoforge holds
+after growing pauses while the caller cannot take it. An error with status_code 429 means the
+gateway took no more of the tenant's calls for now: the caller sends it again later. The url is the caller's: kinoforge holds
 no secret for it.
 """
 
@@ -20,7 +21,7 @@ from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
-from kinoforge.inference.infrelay import InfrelayError
+from kinoforge.inference.infrelay import InfrelayError, InfrelayLimited
 from kinoforge.observ import active
 from kinoforge.schemas import OperationAccepted, OperationRequest
 
@@ -51,7 +52,8 @@ class Operations:
         except HTTPException as exc:
             outcome = {"status": "error", "error": str(exc.detail), "status_code": exc.status_code}
         except InfrelayError as exc:
-            outcome = {"status": "error", "error": str(exc), "status_code": 502}
+            status = 429 if isinstance(exc, InfrelayLimited) else 502
+            outcome = {"status": "error", "error": str(exc), "status_code": status}
         except Exception as exc:  # noqa: BLE001 - the caller hears of every failure
             active().warning(f"background request failed: {exc}")
             outcome = {"status": "error", "error": str(exc) or type(exc).__name__}
