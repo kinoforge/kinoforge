@@ -138,3 +138,14 @@ def test_video_mode_keeps_the_writers_motion_picks():
     ctx = {**_CTX, "scene_count": 2, "require_motion": True}
     result, _ = _run([_JSON_STAGE], [json.dumps(story)], ctx=ctx)
     assert [s["motion"] for s in result["story"]["scenes"]] == [True, False]
+
+
+def test_video_mode_animates_every_scene_a_speaker_says_on_camera():
+    scenes = [{"prompt": "Leo at the sink", "narration": "it smelled", "motion": False,
+               "speaker": "Leo"},
+              {"prompt": "Leo pours", "narration": "watch this", "motion": True, "speaker": "Leo"},
+              {"prompt": "a gym bag", "narration": "two weeks later", "motion": False}]
+    story = {**_STORY, "characters": [{"name": "Leo", "description": "a man"}], "scenes": scenes}
+    ctx = {**_CTX, "scene_count": 3, "require_motion": True}
+    result, _ = _run([_JSON_STAGE], [json.dumps(story)], ctx=ctx)
+    assert [s["motion"] for s in result["story"]["scenes"]] == [True, True, False]

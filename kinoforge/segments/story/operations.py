@@ -198,6 +198,7 @@ class StoryOperations:
         listing = "\n".join(
             f"{index + 1}. IMAGE: {scene.get('prompt', '')}\n"
             f"   NARRATION: {scene.get('narration', '')}"
+            + (f"\n   SPEAKER: {scene['speaker']}" if scene.get("speaker") else "")
             for index, scene in enumerate(scenes)
         )
         prompt = self.ports.prompt(
