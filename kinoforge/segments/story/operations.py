@@ -223,6 +223,7 @@ class StoryOperations:
                 {
                     "action": str(shot.get("action") or "").strip(),
                     "camera": str(shot.get("camera") or "").strip(),
+                    "sound": str(shot.get("sound") or "").strip(),
                     "continuity": str(shot.get("continuity") or "").strip(),
                 }
             )

@@ -60,16 +60,18 @@ class ClipMaker:
     def video_prompt(
         self, scene: dict, shot: dict, story: dict, motion: str = "", max_chars: int = 0
     ) -> str:
-        """One clip's prompt: what moves, how the camera moves, who is in it, and what
-        carries over from the shot before. `motion` is the image preset's cinematography
-        line, applied film-wide over the per-shot direction."""
+        """One clip's prompt: what moves, how the camera moves, what is heard, who is in it,
+        and what carries over from the shot before. `motion` is the image preset's
+        cinematography line, applied film-wide over the per-shot direction."""
         style = (story.get("style") or "").strip()
         scene_text = (scene.get("prompt") or "").strip()
+        sound = str(shot.get("sound") or scene.get("sound") or "").strip()
         cast = self.cast_in(story)
         parts = [
             ("", scene_text),
             ("Action", (shot.get("action") or "").strip()),
             ("Camera", (shot.get("camera") or "").strip()),
+            ("Sound", sound),
             ("Continuity", (shot.get("continuity") or "").strip()),
             ("Characters", cast),
             ("Cinematography", motion.strip()),
@@ -82,6 +84,7 @@ class ClipMaker:
             ("", scene_text),
             ("Action", (shot.get("action") or "").strip()),
             ("Camera", (shot.get("camera") or "").strip()),
+            ("Sound", sound),
             ("Continuity", (shot.get("continuity") or "").strip()),
             ("Characters", self.cast_in(story, scene_text, compact=True)),
             ("Cinematography", PromptText.leading_sentences(motion, 2)),

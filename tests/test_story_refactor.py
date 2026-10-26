@@ -133,6 +133,15 @@ def test_voiceover_scene_keeps_music_and_no_dialogue():
     assert (spec.dialogue, spec.music) == ("", True)
 
 
+def test_a_clip_prompt_says_what_is_heard():
+    maker = ClipMaker(generate_video=lambda *a: b"", ceiling=PromptCeiling())
+    shot = {"action": "a ladle pours", "sound": "sizzling ghee"}
+    heard = maker.video_prompt({"prompt": "a pan", "sound": "kitchen hum"}, shot, {})
+    scene_only = maker.video_prompt({"prompt": "a pan", "sound": "kitchen hum"}, {}, {})
+    assert "Sound: sizzling ghee" in heard and "kitchen hum" not in heard
+    assert "Sound: kitchen hum" in scene_only
+
+
 def test_a_silent_native_scene_makes_its_own_sound_but_never_its_own_score():
     spec = _clip_spec({"prompt": "x", "audio_mode": "native", "narration": ""})
     assert (spec.dialogue, spec.music) == ("", False)
