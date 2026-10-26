@@ -48,6 +48,7 @@ class MediaUtils:
             seconds=opts.seconds, resolution=opts.resolution, aspect_ratio=opts.aspect_ratio,
             mature=opts.mature, image=cls.file(request.image_b64, request.image_url),
             enhance=opts.enhance, enhance_style=opts.enhance_style, references=tuple(references),
+            last_frame=cls.file(request.last_image_b64, request.last_image_url),
         )
 
     @staticmethod

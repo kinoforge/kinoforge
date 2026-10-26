@@ -1,8 +1,8 @@
 """Background-music generation kernel for a story video.
 
-Derives an instrumental mood from the story's style/logline and sizes one bed to the
-video's length (capped so a music model doesn't run forever, assembly loops it under the
-voiceover). The provider call is injected; storage, billing and job state stay with the
+Derives an instrumental mood from the story's music direction (else its style/logline) and
+sizes one bed to the video's length (capped so a music model doesn't run forever, assembly
+loops it under the film). The provider call is injected; storage, billing and job state stay with the
 caller.
 """
 
@@ -11,7 +11,7 @@ from typing import Protocol
 from kinoforge.contract import ModelRef
 from kinoforge.segments.story.timing import NarrationTimer
 
-_MAX_MUSIC_SECONDS = 30  # music models are slow/limited; the composition loops it
+_MAX_MUSIC_SECONDS = 60  # music models are slow/limited; the composition loops it
 
 
 class GenerateMusic(Protocol):
@@ -28,7 +28,8 @@ class MusicComposer:
         self._music_preset = music_preset
 
     def prompt(self, story: dict) -> str:
-        mood = (story.get("style") or story.get("logline") or "cinematic").strip()
+        mood = str(story.get("music") or story.get("style") or story.get("logline") or "cinematic")
+        mood = mood.strip()
         return self._music_preset(mood)
 
     def seconds(self, story: dict) -> int:

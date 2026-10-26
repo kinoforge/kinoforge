@@ -114,12 +114,14 @@ class ClipMaker:
     def clip_call(
         self, scene: dict, story: dict, motion: str, spec: VideoSpec, limit: int
     ) -> tuple[str, VideoSpec]:
-        """The prompt and spec one clip runs with. A native-audio scene voices its own
-        dialogue: the spoken words go to the provider as structured `dialogue`, said on camera
-        by the scene's `speaker` when it names one, and music is turned off so speech stays
-        clear."""
+        """The prompt and spec one clip runs with. A native-audio scene makes its own sound
+        but never its own score: the film's music is one bed under every scene. It voices its
+        own dialogue: the spoken words go to the provider as structured `dialogue`, said on
+        camera by the scene's `speaker` when it names one."""
+        if uses_native_audio(scene):
+            spec = replace(spec, music=False)
         dialogue = self._spoken_line(scene)
         if dialogue:
             speaker = (scene.get("speaker") or "").strip()
-            spec = replace(spec, dialogue=dialogue, speaker=speaker, music=False)
+            spec = replace(spec, dialogue=dialogue, speaker=speaker)
         return self.video_prompt(scene, scene.get("shot") or {}, story, motion, limit), spec

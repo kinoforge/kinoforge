@@ -170,10 +170,11 @@ def test_a_clip_request_with_links_hands_the_links_on():
     local = base64.b64encode(b"local").decode()
     spec = MediaUtils.clip_spec(_video_request(
         image_url="https://assets/still", ref_images_url=["https://assets/sheet"],
-        ref_images_b64=[local],
+        ref_images_b64=[local], last_image_url="https://assets/end",
     ))
     assert spec.image == MediaFile(url="https://assets/still")
     assert spec.references == (MediaFile(url="https://assets/sheet"), MediaFile(data=b"local"))
+    assert spec.last_frame == MediaFile(url="https://assets/end")
 
 
 def test_video_prompt_compacts_to_the_ceiling_and_keeps_the_shot(monkeypatch):

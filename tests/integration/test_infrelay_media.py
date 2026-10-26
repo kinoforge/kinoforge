@@ -10,6 +10,7 @@ import pytest
 
 httpx = pytest.importorskip("httpx")
 
+from kinoforge.contract import MediaFile, VideoSpec  # noqa: E402
 from kinoforge.inference.infrelay import InfrelayClient  # noqa: E402
 
 
@@ -87,3 +88,19 @@ def _spec():
     from kinoforge.contract import VideoSpec
 
     return VideoSpec(seconds=5, resolution=720, aspect_ratio="9:16")
+
+
+def test_a_clip_that_ends_on_a_still_sends_it_as_the_last_frame():
+    client = InfrelayClient("http://infrelay:8090/")
+    linked = VideoSpec(seconds=12, resolution=720, aspect_ratio="9:16",
+                       image=MediaFile(url="https://assets/start"),
+                       last_frame=MediaFile(url="https://assets/end"))
+    inline = VideoSpec(seconds=12, resolution=720, aspect_ratio="9:16",
+                       last_frame=MediaFile(data=b"end"))
+
+    sent = client._video_payload("p", linked)
+    assert (sent["reference_url"], sent["last_frame_url"]) == (
+        "https://assets/start", "https://assets/end"
+    )
+    assert client._video_payload("p", inline)["last_frame_b64"] == base64.b64encode(b"end").decode()
+    assert "last_frame_b64" not in client._video_payload("p", VideoSpec(5, 720, "9:16"))

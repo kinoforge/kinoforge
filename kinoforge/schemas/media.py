@@ -168,6 +168,14 @@ class VideoRenderRequest(LoggableRequest):
         description="The seed still as a link the inference service can read, in place of "
         "image_b64.",
     )
+    last_image_b64: str = Field(
+        default="", description="Optional still the clip ends on, base64 encoded."
+    )
+    last_image_url: str = Field(
+        default="", max_length=4096,
+        description="The end still as a link the inference service can read, in place of "
+        "last_image_b64.",
+    )
     ref_images_b64: List[str] = Field(
         default_factory=list,
         description="Optional images whose characters the clip keeps (a character sheet), "

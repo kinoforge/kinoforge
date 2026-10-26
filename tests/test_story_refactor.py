@@ -133,6 +133,11 @@ def test_voiceover_scene_keeps_music_and_no_dialogue():
     assert (spec.dialogue, spec.music) == ("", True)
 
 
+def test_a_silent_native_scene_makes_its_own_sound_but_never_its_own_score():
+    spec = _clip_spec({"prompt": "x", "audio_mode": "native", "narration": ""})
+    assert (spec.dialogue, spec.music) == ("", False)
+
+
 def test_music_composer_passes_route_prompt_and_capped_seconds():
     sent: list = []
     composer = MusicComposer(
@@ -140,7 +145,18 @@ def test_music_composer_passes_route_prompt_and_capped_seconds():
         music_preset=lambda mood: f"music {mood}",
     )
     assert composer.compose({"style": "noir"}, ModelRef("fal", "beats")) == b"m"
-    assert sent == [(ModelRef("fal", "beats"), "music noir", 30)]
+    assert sent == [(ModelRef("fal", "beats"), "music noir", 60)]
+
+
+def test_music_follows_its_direction_and_lasts_as_long_as_the_clips():
+    sent: list = []
+    composer = MusicComposer(
+        generate_music=lambda ref, prompt, *, seconds: sent.append((prompt, seconds)) or b"m",
+        music_preset=lambda mood: f"music {mood}",
+    )
+    scenes = [{"audio_mode": "native", "seconds": 12}, {"audio_mode": "native", "seconds": 11.6}]
+    composer.compose({"style": "noir", "music": " sitar lounge ", "scenes": scenes}, ModelRef("x"))
+    assert sent == [("music sitar lounge", 24)]
 
 
 # --- translate ------------------------------------------------------------

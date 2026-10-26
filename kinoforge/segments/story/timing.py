@@ -1,5 +1,6 @@
 """Narration-driven timing used before and after voiceover exists."""
 
+import math
 import re
 
 from kinoforge.segments.story.audio_modes import uses_native_audio
@@ -18,6 +19,7 @@ class NarrationTimer:
     PAUSE_SECONDS = 0.18
     MAX_ESTIMATED_PAUSE_SECONDS = 4.0
     MIN_SCENE_SECONDS = 1.0
+    MAX_ASKED_SECONDS = 60.0
 
     @classmethod
     def narration_seconds(cls, text: object) -> float:
@@ -35,19 +37,23 @@ class NarrationTimer:
 
     @classmethod
     def scene_seconds(cls, scene: dict) -> float:
-        """Measured voiceover duration when available, otherwise narration estimate."""
+        """A scene that plays its own sound lasts as long as its clip; else its measured
+        voiceover, else the length it asks for (`seconds`), else its narration's estimate."""
         if uses_native_audio(scene):
-            try:
-                clip_duration = float(scene.get("video_seconds") or 0)
-            except (TypeError, ValueError):
-                clip_duration = 0
-            if clip_duration > 0:
-                return round(clip_duration, 3)
-        try:
-            measured = float(scene.get("audio_seconds") or 0)
-        except (TypeError, ValueError):
-            measured = 0
+            clip = cls._positive(scene.get("video_seconds"))
+            if clip:
+                return clip
         return (
-            round(measured, 3) if measured > 0
-            else cls.narration_seconds(scene.get("narration"))
+            cls._positive(scene.get("audio_seconds"))
+            or min(cls._positive(scene.get("seconds")), cls.MAX_ASKED_SECONDS)
+            or cls.narration_seconds(scene.get("narration"))
         )
+
+    @staticmethod
+    def _positive(value: object) -> float:
+        """A positive, finite number of seconds, rounded, else 0."""
+        try:
+            seconds = float(str(value or 0))
+        except ValueError:
+            return 0.0
+        return round(seconds, 3) if math.isfinite(seconds) and seconds > 0 else 0.0
