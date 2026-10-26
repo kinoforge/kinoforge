@@ -87,12 +87,21 @@ class ModelRef:
 
 
 @dataclass(frozen=True)
+class MediaFile:
+    """A file a call reads: a link the inference service fetches itself, when the caller has
+    one (cloud storage), else its bytes (a self-hosted run's local files)."""
+
+    data: bytes = b""
+    url: str = ""
+
+
+@dataclass(frozen=True)
 class ImageSpec:
     aspect_ratio: str = "9:16"
     seed: Optional[int] = None
     mature: bool = False
     negative: str = ""
-    reference: Optional[bytes] = None
+    reference: Optional[MediaFile] = None
     enhance: bool = False
     enhance_style: str = ""
 
@@ -103,13 +112,13 @@ class VideoSpec:
     resolution: int
     aspect_ratio: str
     mature: bool = False
-    image: Optional[bytes] = None
+    image: Optional[MediaFile] = None
     enhance: bool = False
     enhance_style: str = ""
     dialogue: str = ""
     speaker: str = ""
     music: bool = True
-    references: Tuple[bytes, ...] = ()
+    references: Tuple[MediaFile, ...] = ()
 
 
 class JobKind(StrEnum):

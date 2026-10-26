@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import base64
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 from urllib.parse import urljoin
 
 import httpx
 
-from kinoforge.contract import AITask, ImageSpec, ModelRef, VideoSpec
+from kinoforge.contract import AITask, ImageSpec, MediaFile, ModelRef, VideoSpec
 from kinoforge.inference.charges import InferenceCharges
 from kinoforge.observ import active, shape
 
@@ -183,8 +183,7 @@ class InfrelayClient:
             payload["seed"] = int(spec.seed)
         if spec.negative:
             payload["negative"] = spec.negative
-        if spec.reference is not None:
-            payload["reference_b64"] = base64.b64encode(spec.reference).decode()
+        self._add_file(payload, "reference", spec.reference)
         self._add_enhance(payload, spec.enhance, spec.enhance_style)
         return self._bytes(self._infer(task, ref, payload, timeout=1000))
 
@@ -246,10 +245,8 @@ class InfrelayClient:
             "prompt": prompt, "seconds": spec.seconds, "resolution": spec.resolution,
             "aspect_ratio": spec.aspect_ratio, "safe": not spec.mature,
         }
-        if spec.image is not None:
-            payload["reference_b64"] = base64.b64encode(spec.image).decode()
-        if spec.references:
-            payload["ref_images_b64"] = [base64.b64encode(ref).decode() for ref in spec.references]
+        self._add_file(payload, "reference", spec.image)
+        self._add_files(payload, "ref_images", spec.references)
         self._add_enhance(payload, spec.enhance, spec.enhance_style)
         if spec.dialogue:
             payload["dialogue"] = spec.dialogue
@@ -286,6 +283,24 @@ class InfrelayClient:
             raise InfrelayError("infrelay transcribe returned unsupported output")
         meta = output.get("meta") or {}
         return list(meta.get("segments") or []), meta
+
+    @staticmethod
+    def _add_file(payload: Dict[str, Any], name: str, media: Optional[MediaFile]) -> None:
+        """A file as `<name>_url` when it has a link, else inline as `<name>_b64`."""
+        if media is not None:
+            if media.url:
+                payload[f"{name}_url"] = media.url
+            else:
+                payload[f"{name}_b64"] = base64.b64encode(media.data).decode()
+
+    @staticmethod
+    def _add_files(payload: Dict[str, Any], name: str, files: Sequence[MediaFile]) -> None:
+        links = [media.url for media in files if media.url]
+        inline = [base64.b64encode(media.data).decode() for media in files if not media.url]
+        if links:
+            payload[f"{name}_url"] = links
+        if inline:
+            payload[f"{name}_b64"] = inline
 
     @staticmethod
     def _add_enhance(payload: Dict[str, Any], enhance: bool, style: str) -> None:

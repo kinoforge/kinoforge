@@ -9,7 +9,14 @@ import pytest
 
 pytest.importorskip("httpx")
 
-from kinoforge.contract import AITask, ImageSpec, JobKind, ModelRef, VideoSpec  # noqa: E402
+from kinoforge.contract import (  # noqa: E402
+    AITask,
+    ImageSpec,
+    JobKind,
+    MediaFile,
+    ModelRef,
+    VideoSpec,
+)
 from kinoforge.definitions import DefinitionBundle  # noqa: E402
 from kinoforge.inference import InfrelayClient, InfrelayError  # noqa: E402
 from kinoforge.inference import infrelay as infrelay_module  # noqa: E402
@@ -51,7 +58,7 @@ def _capture(monkeypatch, output):
 def test_image_payload_comes_from_the_spec(monkeypatch):
     sent = _capture(monkeypatch, {"type": "b64", "value": base64.b64encode(b"png").decode()})
     spec = ImageSpec(aspect_ratio="1:1", seed=7, mature=True, negative="blur",
-                     reference=b"ref", enhance=True, enhance_style="cine")
+                     reference=MediaFile(data=b"ref"), enhance=True, enhance_style="cine")
     client = InfrelayClient("http://gw", tenant="t")
     data = client.image(AITask.STORY_IMAGE, ModelRef("fal", "flux"), "a cat", spec)
     assert data == b"png"
@@ -77,12 +84,24 @@ def test_video_payload_carries_dialogue_and_music_off(monkeypatch):
 
 def test_video_payload_carries_the_first_frame_and_reference_images(monkeypatch):
     sent = _capture(monkeypatch, {"type": "b64", "value": base64.b64encode(b"mp4").decode()})
-    spec = VideoSpec(seconds=5, resolution=720, aspect_ratio="9:16", image=b"still",
-                     references=(b"sheet",))
+    spec = VideoSpec(seconds=5, resolution=720, aspect_ratio="9:16",
+                     image=MediaFile(data=b"still"), references=(MediaFile(data=b"sheet"),))
     InfrelayClient("http://gw").video(AITask.STORY_VIDEO, ModelRef("salad", "h3"), "walk", spec)
     payload = sent[0]["input"]
     assert payload["reference_b64"] == base64.b64encode(b"still").decode()
     assert payload["ref_images_b64"] == [base64.b64encode(b"sheet").decode()]
+
+
+def test_a_file_the_caller_gave_as_a_link_goes_as_a_link(monkeypatch):
+    sent = _capture(monkeypatch, {"type": "b64", "value": base64.b64encode(b"mp4").decode()})
+    spec = VideoSpec(seconds=5, resolution=720, aspect_ratio="9:16",
+                     image=MediaFile(url="https://assets/still"),
+                     references=(MediaFile(url="https://assets/sheet"), MediaFile(data=b"local")))
+    InfrelayClient("http://gw").video(AITask.STORY_VIDEO, ModelRef("salad", "h3"), "walk", spec)
+    payload = sent[0]["input"]
+    assert payload["reference_url"] == "https://assets/still" and "reference_b64" not in payload
+    assert payload["ref_images_url"] == ["https://assets/sheet"]
+    assert payload["ref_images_b64"] == [base64.b64encode(b"local").decode()]
 
 
 def test_a_pick_with_fallbacks_reaches_the_gateway_as_is(monkeypatch):

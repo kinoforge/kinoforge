@@ -10,7 +10,7 @@ from functools import partial
 from string import Template
 from typing import Any
 
-from kinoforge.contract import AITask, ImageSpec, ModelRef, VideoSpec
+from kinoforge.contract import AITask, ImageSpec, MediaFile, ModelRef, VideoSpec
 from kinoforge.definitions import DefinitionBundle
 from kinoforge.definitions.models import DefinitionKind
 from kinoforge.inference.charges import InferenceCharges
@@ -33,17 +33,21 @@ from kinoforge.service.settings import ServiceSettings
 
 class MediaUtils:
     @staticmethod
-    def decode(value: str | None) -> bytes | None:
-        return base64.b64decode(value) if value else None
+    def file(b64: str, url: str) -> MediaFile | None:
+        """The file a request names: its link when it sent one, else its bytes."""
+        if url:
+            return MediaFile(url=url)
+        return MediaFile(data=base64.b64decode(b64)) if b64 else None
 
     @classmethod
     def clip_spec(cls, request: VideoRenderRequest) -> VideoSpec:
         opts = request.options
+        references = [MediaFile(url=url) for url in request.ref_images_url if url]
+        references += [MediaFile(data=base64.b64decode(ref)) for ref in request.ref_images_b64 if ref]
         return VideoSpec(
             seconds=opts.seconds, resolution=opts.resolution, aspect_ratio=opts.aspect_ratio,
-            mature=opts.mature, image=cls.decode(request.image_b64), enhance=opts.enhance,
-            enhance_style=opts.enhance_style,
-            references=tuple(base64.b64decode(ref) for ref in request.ref_images_b64 if ref),
+            mature=opts.mature, image=cls.file(request.image_b64, request.image_url),
+            enhance=opts.enhance, enhance_style=opts.enhance_style, references=tuple(references),
         )
 
     @staticmethod
@@ -119,7 +123,8 @@ class MediaRuntime:
         opts = request.options
         spec = ImageSpec(
             aspect_ratio=opts.aspect_ratio, seed=opts.seed, mature=opts.mature,
-            reference=MediaUtils.decode(request.reference_b64), enhance=opts.enhance,
+            reference=MediaUtils.file(request.reference_b64, request.reference_url),
+            enhance=opts.enhance,
             enhance_style=opts.enhance_style,
         )
         story, rec = dict(request.story), dict(request.rec)

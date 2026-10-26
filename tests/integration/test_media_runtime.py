@@ -9,6 +9,7 @@ import pytest
 
 pytest.importorskip("httpx")
 
+from kinoforge.contract import MediaFile  # noqa: E402
 from kinoforge.schemas import (  # noqa: E402
     ClipJobRequest,
     ImageRenderRequest,
@@ -17,7 +18,7 @@ from kinoforge.schemas import (  # noqa: E402
     VideoRenderRequest,
     VoiceRenderRequest,
 )
-from kinoforge.service.runtimes.media import MediaRuntime  # noqa: E402
+from kinoforge.service.runtimes.media import MediaRuntime, MediaUtils  # noqa: E402
 from kinoforge.service.settings import ServiceSettings  # noqa: E402
 from tests.integration.runtime_support import SETTINGS, bundle, fake, preset  # noqa: E402
 
@@ -163,6 +164,16 @@ def test_render_clip_learns_prompt_ceiling_on_retry(monkeypatch):
 
     assert calls["n"] == 2
     assert out["observed_limit"] == 2000
+
+
+def test_a_clip_request_with_links_hands_the_links_on():
+    local = base64.b64encode(b"local").decode()
+    spec = MediaUtils.clip_spec(_video_request(
+        image_url="https://assets/still", ref_images_url=["https://assets/sheet"],
+        ref_images_b64=[local],
+    ))
+    assert spec.image == MediaFile(url="https://assets/still")
+    assert spec.references == (MediaFile(url="https://assets/sheet"), MediaFile(data=b"local"))
 
 
 def test_video_prompt_compacts_to_the_ceiling_and_keeps_the_shot(monkeypatch):
@@ -405,4 +416,6 @@ def test_a_scene_with_a_reference_is_told_what_the_reference_is_for(monkeypatch)
     assert "reference image" not in seen["prompt"]
     sheet = base64.b64encode(b"sheet").decode()
     runtime.render_image(_image_request("scene", reference_b64=sheet))
+    assert seen["prompt"].startswith("a lighthouse. Match the reference image")
+    runtime.render_image(_image_request("scene", reference_url="https://assets/sheet"))
     assert seen["prompt"].startswith("a lighthouse. Match the reference image")
