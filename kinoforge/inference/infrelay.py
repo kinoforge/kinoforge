@@ -122,6 +122,7 @@ class InfrelayClient:
             "credits": int(usage.get("credits") or 0),
             "byok": bool(usage.get("byok")),
             "units": int(usage.get("units") or 1),
+            "routed": bool(usage.get("routed")),
         })
         rewrite = usage.get("enhance")
         if isinstance(rewrite, dict):
