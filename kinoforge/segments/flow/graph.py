@@ -21,6 +21,8 @@ class FlowNode(BaseModel):
     id: str = Field(pattern=NODE_ID)
     type: str = Field(min_length=1, max_length=64)
     config: Dict[str, Any] = Field(default_factory=dict)
+    # The block (a scene) this node sits in.
+    parent: Optional[str] = Field(default=None, pattern=NODE_ID)
 
 
 class FlowEdge(BaseModel):
@@ -57,6 +59,10 @@ class IssueCode(StrEnum):
     PORT_TAKEN = "port_taken"
     MISSING_INPUT = "missing_input"
     CYCLE = "cycle"
+    BAD_PARENT = "bad_parent"
+    CROSS_BLOCK = "cross_block"
+    BLOCK_FULL = "block_full"
+    BLOCK_LIST = "block_list"
 
 
 @dataclass(frozen=True)
@@ -95,18 +101,26 @@ class FlowValidator:
     def __init__(self, graph: FlowGraph) -> None:
         self._graph = graph
         self._specs: Dict[str, Type[NodeSpec]] = {}
+        self._parent: Dict[str, str] = {}
         self._issues: List[Issue] = []
 
     def check(self) -> FlowCheck:
         if not self._graph.nodes:
             return FlowCheck(issues=[Issue(IssueCode.EMPTY, "Add a node to start.")])
         self._nodes()
+        self._parents()
         incoming = self._edges()
         self._required(incoming)
         order = self._order()
         if self._issues or order is None:
             return FlowCheck(issues=self._issues)
         mapped, lists = self._lists(order, incoming)
+        for node_id in mapped:
+            if self._parent.get(node_id) or self._specs[node_id].block:
+                self._issue(IssueCode.BLOCK_LIST, "A scene runs once: feed it one value, not a "
+                            "list.", node=node_id)
+        if self._issues:
+            return FlowCheck(issues=self._issues)
         return FlowCheck(order=order, mapped=mapped, lists=lists)
 
     def _issue(self, code: IssueCode, message: str, **where: Any) -> None:
@@ -136,6 +150,34 @@ class FlowValidator:
                     self._issue(IssueCode.BAD_CONFIG, spec.config_error(error), node=node.id,
                                 field=name)
 
+    def _parents(self) -> None:
+        held: Dict[str, int] = defaultdict(int)
+        for node in self._graph.nodes:
+            if node.parent is None or node.id not in self._specs:
+                continue
+            block = self._specs.get(node.parent)
+            if block is None or not block.block or self._specs[node.id].block:
+                self._issue(IssueCode.BAD_PARENT, "This node cannot sit there.", node=node.id)
+                continue
+            self._parent[node.id] = node.parent
+            held[node.parent] += 1
+            if held[node.parent] == block.holds + 1:
+                self._issue(IssueCode.BLOCK_FULL,
+                            f"{block.label} holds at most {block.holds} nodes.", node=node.parent)
+
+    def _crosses(self, source: str, target: str, port: str) -> bool:
+        """A link that leaves its block: inside a block, links stay inside, a block is fed by
+        its own nodes (and by the block before on its chain), and an outside node may feed in."""
+        target_spec = self._specs[target]
+        if target_spec.block:
+            if port == target_spec.chain:
+                return not self._specs[source].block or source in self._parent
+            return self._parent.get(source) != target
+        inside = self._parent.get(source)
+        if inside is not None:
+            return inside != self._parent.get(target)
+        return self._specs[source].block and target in self._parent
+
     def _edges(self) -> Dict[Tuple[str, str], List[int]]:
         incoming: Dict[Tuple[str, str], List[int]] = defaultdict(list)
         seen: Set[Tuple[str, str, str, str]] = set()
@@ -157,11 +199,17 @@ class FlowValidator:
                 self._issue(IssueCode.TYPE_MISMATCH,
                             f"{out.label} ({out.type}) cannot go into {into.label} ({into.type}).",
                             edge=index, node=edge.target)
+            elif self._crosses(edge.source, edge.target, edge.target_port):
+                self._issue(IssueCode.CROSS_BLOCK, "Links stay inside their scene.", edge=index,
+                            node=edge.target)
             elif key in seen:
                 self._issue(IssueCode.DUPLICATE_EDGE, "Two links are the same.", edge=index)
             elif not into.many and incoming[(edge.target, edge.target_port)]:
                 self._issue(IssueCode.PORT_TAKEN, f"{into.label} takes one link.", edge=index,
                             node=edge.target)
+            elif into.most and len(incoming[(edge.target, edge.target_port)]) >= into.most:
+                self._issue(IssueCode.PORT_TAKEN, f"{into.label} takes at most {into.most}.",
+                            edge=index, node=edge.target)
             else:
                 seen.add(key)
                 incoming[(edge.target, edge.target_port)].append(index)

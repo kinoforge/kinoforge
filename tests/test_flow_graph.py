@@ -104,19 +104,95 @@ def test_the_catalog_describes_every_node_with_its_config_schema():
     assert [port["name"] for port in image["inputs"]] == ["prompt", "reference"]
 
 
-def test_each_node_type_has_a_cap_the_caller_may_set():
-    scenes = [(f"s{i}", "story.scene", {"prompt": f"Shot {i}"}) for i in range(3)]
-    links = [(f"s{i}", "story", f"s{i + 1}", "story") for i in range(2)]
-    assert _graph(scenes, links).limits == {}
-    assert FlowValidator(_graph(scenes, links)).check().ok
+def _scene_graph(nodes, edges=(), limits=None):
+    return FlowGraph.model_validate({
+        "nodes": [{"id": i, "type": t, "config": c, **({"parent": p} if p else {})}
+                  for i, t, c, p in nodes],
+        "edges": [
+            {"source": s, "source_port": sp, "target": t, "target_port": tp}
+            for s, sp, t, tp in edges
+        ],
+        "limits": limits or {},
+    })
 
-    capped = FlowGraph.model_validate({**_graph(scenes, links).model_dump(),
-                                       "limits": {"story.scene": 2}})
-    issues = FlowValidator(capped).check().issues
-    assert [(i.code, i.node) for i in issues] == [(IssueCode.TOO_MANY, "s2")]
+
+def _scene(n):
+    return [(f"s{n}", "story.scene", {}, None),
+            (f"p{n}", "input.text", {"text": f"Shot {n}"}, f"s{n}"),
+            (f"v{n}", "generate.video", {}, f"s{n}")]
+
+
+def _inside(n):
+    return [(f"p{n}", "text", f"v{n}", "prompt"), (f"v{n}", "video", f"s{n}", "clip")]
+
+
+def test_each_node_type_has_a_cap_the_caller_may_set():
+    nodes = _scene(1) + _scene(2) + _scene(3)
+    edges = _inside(1) + _inside(2) + _inside(3) + [
+        ("s1", "film", "s2", "before"), ("s2", "film", "s3", "before")]
+    assert FlowValidator(_scene_graph(nodes, edges)).check().ok
+
+    issues = FlowValidator(_scene_graph(nodes, edges, {"story.scene": 2})).check().issues
+    assert [(i.code, i.node) for i in issues] == [(IssueCode.TOO_MANY, "s3")]
 
     writers = _graph([(f"w{i}", "story.write", {}) for i in range(3)])
     assert IssueCode.TOO_MANY in _codes(writers)
+
+
+def test_scenes_chain_in_order_and_links_stay_inside_their_scene():
+    nodes = _scene(1) + _scene(2) + [("cast", "input.image", {"asset": "u/cast.png"}, None),
+                                     ("cut", "edit.concat", {}, None)]
+    edges = _inside(1) + _inside(2) + [("s1", "film", "s2", "before"),
+                                       ("cast", "image", "v2", "references"),
+                                       ("s2", "film", "cut", "videos")]
+    check = FlowValidator(_scene_graph(nodes, edges)).check()
+    assert check.ok, check.issues
+    assert check.order.index("s1") < check.order.index("s2") < check.order.index("cut")
+    assert check.mapped == []
+
+    for bad in (("p1", "text", "v2", "prompt"),     # into another scene
+                ("v1", "video", "cut", "videos"),   # out past its scene
+                ("v2", "video", "s1", "clip")):     # a clip from another scene
+        graph = _scene_graph(nodes, [e for e in edges if e[2:] != bad[2:]] + [bad])
+        assert IssueCode.CROSS_BLOCK in _codes(graph), bad
+
+
+def test_a_scene_holds_a_few_nodes_runs_once_and_sits_at_the_top():
+    crowded = [("s1", "story.scene", {}, None)] + [
+        (f"p{i}", "input.text", {"text": "x"}, "s1") for i in range(9)]
+    assert IssueCode.BLOCK_FULL in _codes(_scene_graph(crowded))
+
+    nested = [("s1", "story.scene", {}, None), ("s2", "story.scene", {}, "s1"),
+              ("p", "input.text", {"text": "x"}, "cut"), ("cut", "edit.concat", {}, None)]
+    assert _codes(_scene_graph(nested)).count(IssueCode.BAD_PARENT) == 2
+
+    listed = _scene(1) + [BRIEF + (None,), ("w", "story.write", {}, None),
+                          ("sc", "story.scenes", {}, None)]
+    edges = [("p1", "text", "v1", "prompt"), ("v1", "video", "s1", "clip"),
+             ("brief", "text", "w", "brief"), ("w", "story", "sc", "story"),
+             ("sc", "prompts", "v1", "dialogue")]
+    assert IssueCode.BLOCK_LIST in _codes(_scene_graph(listed, edges))
+
+
+def test_a_video_takes_at_most_five_references():
+    nodes = [("v", "generate.video", {}, None), BRIEF + (None,)] + [
+        (f"i{n}", "input.image", {"asset": f"u/{n}.png"}, None) for n in range(6)]
+    edges = [("brief", "text", "v", "prompt")] + [
+        (f"i{n}", "image", "v", "references") for n in range(6)]
+    assert _codes(_scene_graph(nodes, edges)) == [IssueCode.PORT_TAKEN]
+    assert FlowValidator(_scene_graph(nodes[:-1], edges[:-1])).check().ok
+
+
+def test_the_scene_by_scene_template_is_sound_once_its_lines_are_written():
+    template = FlowRuntime.catalog()["templates"]["scenes"]
+    nodes = [{k: v for k, v in n.items() if k != "position"} for n in template["nodes"]]
+    for node in nodes:
+        if node["type"] == "input.text":
+            node["config"] = {"text": "A lighthouse at dusk."}
+    check = FlowValidator(FlowGraph.model_validate({"nodes": nodes,
+                                                    "edges": template["edges"]})).check()
+    assert check.ok, check.issues
+    assert check.order.index("scene1") < check.order.index("scene3") < check.order.index("cut")
 
 
 def test_the_series_template_takes_its_brief_from_the_episode():

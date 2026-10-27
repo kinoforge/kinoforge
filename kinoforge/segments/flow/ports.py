@@ -28,6 +28,8 @@ class Port:
     type: PortType
     required: bool = False
     many: bool = False
+    # The most a `many` input takes; 0 is the run's own cap.
+    most: int = 0
 
     def describe(self) -> dict:
         return {
@@ -36,4 +38,5 @@ class Port:
             "type": self.type.value,
             "required": self.required,
             "many": self.many,
+            "most": self.most,
         }

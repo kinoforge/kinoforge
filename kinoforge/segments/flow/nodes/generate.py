@@ -32,6 +32,7 @@ class Resolution(IntEnum):
 
 
 PROMPT = Port("prompt", "Prompt", PortType.TEXT, required=True)
+MAX_REFERENCES = 5
 
 
 class TextGenConfig(NodeConfig):
@@ -101,12 +102,16 @@ class VideoGen(NodeSpec):
     type = "generate.video"
     group = NodeGroup.GENERATE
     label = "Video"
-    description = "A clip from the prompt, optionally starting or ending on an image."
+    description = (
+        "A clip from the prompt, optionally starting or ending on an image. References (up to "
+        f"{MAX_REFERENCES}) keep people and places the same; the model uses as many as it takes."
+    )
     inputs = (
         PROMPT,
         Port("first_frame", "First frame", PortType.IMAGE),
         Port("last_frame", "Last frame", PortType.IMAGE),
         Port("dialogue", "Spoken line", PortType.TEXT),
+        Port("references", "References", PortType.IMAGE, many=True, most=MAX_REFERENCES),
     )
     outputs = (Port("video", "Video", PortType.VIDEO),)
     config = VideoGenConfig
@@ -119,6 +124,9 @@ class VideoGen(NodeSpec):
             aspect_ratio=config.aspect_ratio.value,
             image=ctx.file(inputs.get("first_frame")),
             last_frame=ctx.file(inputs.get("last_frame")),
+            references=tuple(
+                file for media in inputs.get("references") or [] if (file := ctx.file(media))
+            ),
             dialogue=str(inputs.get("dialogue") or ""),
             music=config.music,
         )

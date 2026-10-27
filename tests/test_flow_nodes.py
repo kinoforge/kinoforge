@@ -93,13 +93,13 @@ def test_scenes_split_a_story_into_prompts_and_lines(tmp_path):
                    "narration": ["It rained.", "A cat came."], "title": "Keeper"}
 
 
-def test_chained_scenes_add_up_to_a_story_in_order(tmp_path):
+def test_each_scene_adds_its_clip_to_the_film_so_far(tmp_path):
+    for name in ("a.mp4", "b.mp4"):
+        (tmp_path / name).write_bytes(b"x")
     runtime = _runtime(tmp_path)
-    first = _run(runtime, "story.scene", {"prompt": " a storm ", "narration": "It rained."})
-    story = first["outputs"]["story"]
-    second = _run(runtime, "story.scene", {"prompt": "a cat"}, {"story": story})
-    assert second["outputs"]["story"] == {"scenes": [
-        {"prompt": "a storm", "narration": "It rained."}, {"prompt": "a cat", "narration": ""}]}
+    first = _run(runtime, "story.scene", inputs={"clip": {"path": "a.mp4"}})["outputs"]["film"]
+    second = _run(runtime, "story.scene", inputs={"before": first, "clip": {"path": "b.mp4"}})
+    assert [m["path"] for m in second["outputs"]["film"]] == ["a.mp4", "b.mp4"]
 
 
 def test_clips_join_fitted_to_the_first_and_take_sound_over_them(tmp_path):

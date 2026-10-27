@@ -71,28 +71,25 @@ class Writer(NodeSpec):
         return {"story": result["story"]}
 
 
-class SceneConfig(NodeConfig):
-    prompt: str = Field(
-        min_length=1, max_length=4000, title="Scene", json_schema_extra={"widget": "textarea"}
-    )
-    narration: str = Field(
-        default="", max_length=1000, title="Narration", json_schema_extra={"widget": "textarea"}
-    )
-
-
 class Scene(NodeSpec):
     type = "story.scene"
     group = NodeGroup.STORY
     label = "Scene"
-    description = "One scene you write. Chain scenes to tell a story in order."
-    inputs = (Port("story", "Before", PortType.STORY),)
-    outputs = (Port("story", "Story", PortType.STORY),)
-    config = SceneConfig
+    description = (
+        "A scene: put its nodes inside and link its clip to the scene. Chain scenes in order; "
+        "the last one holds the whole film."
+    )
+    inputs = (
+        Port("before", "Scenes before", PortType.VIDEO, many=True),
+        Port("clip", "Clip", PortType.VIDEO, required=True),
+    )
+    outputs = (Port("film", "Film so far", PortType.VIDEO, many=True),)
+    block = True
+    chain = "before"
+    holds = 8
 
     def run(self, ctx: NodeContext, inputs: Dict[str, Any], config: Any) -> Dict[str, Any]:
-        story = dict(inputs.get("story") or {})
-        scene = {"prompt": config.prompt.strip(), "narration": config.narration.strip()}
-        return {"story": {**story, "scenes": [*(story.get("scenes") or []), scene]}}
+        return {"film": [*(inputs.get("before") or []), inputs["clip"]]}
 
 
 class Scenes(NodeSpec):

@@ -36,8 +36,9 @@ class FlowValues:
                     raise FlowError(f"{spec.label} needs {port.label}")
                 continue
             if port.many:
-                if not isinstance(value, list) or len(value) > MAX_ITEMS:
-                    raise FlowError(f"{port.label} must be a list of at most {MAX_ITEMS}")
+                most = port.most or MAX_ITEMS
+                if not isinstance(value, list) or len(value) > most:
+                    raise FlowError(f"{port.label} takes at most {most}")
                 out[port.name] = [cls._one(port, item) for item in value]
             else:
                 out[port.name] = cls._one(port, value)

@@ -138,6 +138,11 @@ class NodeSpec:
     one_of: ClassVar[Tuple[str, ...]] = ()
     # How many of this type one flow may hold; the caller may set its own.
     most: ClassVar[int] = 20
+    # A block holds other nodes (their `parent`); `chain` is the input linking it to the
+    # block before it, every other input is fed from inside.
+    block: ClassVar[bool] = False
+    chain: ClassVar[str] = ""
+    holds: ClassVar[int] = 0
 
     @classmethod
     def input(cls, name: str) -> Optional[Port]:
@@ -162,6 +167,9 @@ class NodeSpec:
             "host": cls.host,
             "one_of": list(cls.one_of),
             "most": cls.most,
+            "block": cls.block,
+            "chain": cls.chain,
+            "holds": cls.holds,
         }
 
     @classmethod
