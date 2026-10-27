@@ -10,6 +10,7 @@ STEP = 280
 
 class FlowTemplate(StrEnum):
     STORY = "story"
+    SERIES = "series"
 
 
 Placed = Tuple[str, str, int, int, Dict[str, Any]]
@@ -18,7 +19,8 @@ Link = Tuple[str, str, str, str]
 
 class FlowTemplates:
     """A story from a brief, the way the guided story makes it: written, a still and a clip
-    per scene, a voice per line, cut together with the voices laid over."""
+    per scene, a voice per line, cut together with the voices laid over. A series writes one
+    such story per episode."""
 
     STORY_NODES: Tuple[Placed, ...] = (
         ("brief", "input.text", 0, 1, {"text": ""}),
@@ -43,7 +45,15 @@ class FlowTemplates:
         ("voice", "audio", "sound", "voice"),
         ("sound", "video", "result", "video"),
     )
-    GRAPHS = {FlowTemplate.STORY: (STORY_NODES, STORY_LINKS)}
+    # The same story, written from each episode's brief.
+    SERIES_NODES: Tuple[Placed, ...] = (
+        ("brief", "input.episode", 0, 1, {}),
+        *STORY_NODES[1:],
+    )
+    GRAPHS = {
+        FlowTemplate.STORY: (STORY_NODES, STORY_LINKS),
+        FlowTemplate.SERIES: (SERIES_NODES, STORY_LINKS),
+    }
 
     @classmethod
     def graph(cls, template: FlowTemplate) -> Dict[str, List[Dict[str, Any]]]:

@@ -28,6 +28,16 @@ class TextInput(NodeSpec):
         return {"text": config.text.strip()}
 
 
+class EpisodeInput(NodeSpec):
+    type = "input.episode"
+    group = NodeGroup.INPUT
+    label = "Episode"
+    description = "This episode's title and brief. The series sets them for each run."
+    outputs = (Port("text", "Brief", PortType.TEXT), Port("title", "Title", PortType.TEXT))
+    host = True
+    most = 1
+
+
 class AssetConfig(NodeConfig):
     asset: str = Field(
         pattern=ASSET_PATTERN, title="File", json_schema_extra={"widget": "upload"}

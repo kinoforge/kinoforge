@@ -14,14 +14,20 @@ from kinoforge.segments.flow.nodes.base import (
 )
 from kinoforge.segments.flow.nodes.edit import Captions, Concat, Mix, Trim
 from kinoforge.segments.flow.nodes.generate import ImageGen, MusicGen, TextGen, VideoGen, VoiceGen
-from kinoforge.segments.flow.nodes.inputs import AudioInput, ImageInput, TextInput, VideoInput
+from kinoforge.segments.flow.nodes.inputs import (
+    AudioInput,
+    EpisodeInput,
+    ImageInput,
+    TextInput,
+    VideoInput,
+)
 from kinoforge.segments.flow.nodes.output import Publish, Save
 from kinoforge.segments.flow.nodes.story import Cast, Scene, Scenes, Writer
 
 NODES: Dict[str, Type[NodeSpec]] = {
     spec.type: spec
     for spec in (
-        TextInput, ImageInput, VideoInput, AudioInput,
+        TextInput, EpisodeInput, ImageInput, VideoInput, AudioInput,
         TextGen, ImageGen, VideoGen, VoiceGen, MusicGen,
         Writer, Scene, Scenes, Cast,
         Concat, Trim, Mix, Captions,

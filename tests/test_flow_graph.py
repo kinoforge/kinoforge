@@ -119,6 +119,14 @@ def test_each_node_type_has_a_cap_the_caller_may_set():
     assert IssueCode.TOO_MANY in _codes(writers)
 
 
+def test_the_series_template_takes_its_brief_from_the_episode():
+    template = FlowRuntime.catalog()["templates"]["series"]
+    nodes = [{k: v for k, v in n.items() if k != "position"} for n in template["nodes"]]
+    graph = FlowGraph.model_validate({"nodes": nodes, "edges": template["edges"]})
+    assert nodes[0]["type"] == "input.episode"
+    assert FlowValidator(graph).check().ok
+
+
 def test_the_story_template_is_a_sound_flow_once_its_brief_is_written():
     template = FlowRuntime.catalog()["templates"]["story"]
     nodes = [{k: v for k, v in n.items() if k != "position"} for n in template["nodes"]]
