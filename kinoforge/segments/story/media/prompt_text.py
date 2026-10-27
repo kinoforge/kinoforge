@@ -38,6 +38,17 @@ class PromptText:
                 mentioned.append(character)
         return mentioned
 
+    @classmethod
+    def shows_cast(cls, scene: dict[str, Any], story: dict[str, Any]) -> bool:
+        """Whether the scene names one of the cast (or the story names none), so a reference
+        image of the cast belongs in it."""
+        characters = [c for c in story.get("characters") or [] if str(c.get("name") or "").strip()]
+        if not characters:
+            return True
+        text = f"{scene.get('prompt') or ''} {scene.get('speaker') or ''}"
+        story_texts = [str(s.get("prompt") or "") for s in story.get("scenes") or []]
+        return bool(cls.mentioned_characters(characters, text, story_texts))
+
     @staticmethod
     def _names(alias: str, text: str, story_texts: list[str]) -> bool:
         word = alias.strip(".,;:")

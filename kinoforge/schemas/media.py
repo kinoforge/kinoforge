@@ -76,6 +76,11 @@ class ImageRenderRequest(OperationRequest):
         description="The reference image as a link the inference service can read, in place "
         "of reference_b64.",
     )
+    reference_cast: bool = Field(
+        default=False,
+        description="The reference shows the story's cast: a scene naming none of them is "
+        "painted without it.",
+    )
     prompt_limit: int = Field(
         default=0, ge=0,
         description="Provider prompt-length ceiling resolved by the caller; 0 when unknown.",
@@ -179,7 +184,7 @@ class VideoRenderRequest(LoggableRequest):
     ref_images_b64: List[str] = Field(
         default_factory=list,
         description="Optional images whose characters the clip keeps (a character sheet), "
-        "base64 encoded.",
+        "base64 encoded. Left out of a scene that names none of the cast.",
     )
     ref_images_url: List[str] = Field(
         default_factory=list,

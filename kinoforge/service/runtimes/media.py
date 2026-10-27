@@ -26,6 +26,7 @@ from kinoforge.schemas import (
 from kinoforge.segments.story.media.ceiling import PromptCeiling, limit_from_error
 from kinoforge.segments.story.media.images import ImagePainter
 from kinoforge.segments.story.media.music import MusicComposer
+from kinoforge.segments.story.media.prompt_text import PromptText
 from kinoforge.segments.story.media.videos import ClipMaker
 from kinoforge.service.runtimes.presets import BundleImagePresets
 from kinoforge.service.settings import ServiceSettings
@@ -44,6 +45,8 @@ class MediaUtils:
         opts = request.options
         references = [MediaFile(url=url) for url in request.ref_images_url if url]
         references += [MediaFile(data=base64.b64decode(ref)) for ref in request.ref_images_b64 if ref]
+        if not PromptText.shows_cast(request.scene, request.story):
+            references = []
         return VideoSpec(
             seconds=opts.seconds, resolution=opts.resolution, aspect_ratio=opts.aspect_ratio,
             mature=opts.mature, image=cls.file(request.image_b64, request.image_url),
@@ -122,9 +125,12 @@ class MediaRuntime:
         task = AITask.STORY_CAST if request.mode == "character" else AITask.STORY_IMAGE
         painter = self._painter(self._presets(request), partial(infrelay.image, task), ceiling)
         opts = request.options
+        reference = MediaUtils.file(request.reference_b64, request.reference_url)
+        if request.reference_cast and not PromptText.shows_cast(request.scene, request.story):
+            reference = None
         spec = ImageSpec(
             aspect_ratio=opts.aspect_ratio, seed=opts.seed, mature=opts.mature,
-            reference=MediaUtils.file(request.reference_b64, request.reference_url),
+            reference=reference,
             enhance=opts.enhance,
             enhance_style=opts.enhance_style,
         )

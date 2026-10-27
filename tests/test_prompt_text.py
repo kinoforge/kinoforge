@@ -68,3 +68,12 @@ def test_short_aliases_below_three_chars_ignored():
 
 def test_unnamed_characters_skipped():
     assert mentioned_characters([{"name": "  "}], "anything") == []
+
+
+def test_shows_cast_by_name_or_speaker():
+    story = {"characters": [{"name": "Maya"}], "scenes": [{"prompt": "a lighthouse"}]}
+    assert not PromptText.shows_cast({"prompt": "a lighthouse in a storm"}, story)
+    assert PromptText.shows_cast({"prompt": "Maya at her desk"}, story)
+    assert PromptText.shows_cast({"prompt": "a desk", "speaker": "Maya"}, story)
+    assert PromptText.shows_cast({"prompt": "a lighthouse"}, {"characters": []})
+
