@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from kinoforge.api.observe import log_requests
 from kinoforge.api.routers import ALL as ROUTERS
 from kinoforge.inference.infrelay import InfrelayError, InfrelayLimited
+from kinoforge.segments.flow.nodes import FlowError
 from kinoforge.service.executions import ExecutionConflict
 
 app = FastAPI(
@@ -27,6 +28,7 @@ app = FastAPI(
         {"name": "Clips", "description": "Execute complete long-video to short-clips jobs."},
         {"name": "Story", "description": "Write story plans and generate scene media."},
         {"name": "Series", "description": "Plan connected episodes for a recurring show."},
+        {"name": "Flow", "description": "Check node canvases and run their nodes one by one."},
         {"name": "Media", "description": "Probe, render, and aspect-format shared-volume media."},
         {"name": "Transcription", "description": "Transcribe and align narration for captions."},
     ],
@@ -38,6 +40,11 @@ app.middleware("http")(log_requests)
 @app.exception_handler(ExecutionConflict)
 async def _execution_conflict(_request: Request, exc: ExecutionConflict) -> JSONResponse:
     return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(FlowError)
+async def _flow_refused(_request: Request, exc: FlowError) -> JSONResponse:
+    return JSONResponse(status_code=422, content={"detail": str(exc)})
 
 
 @app.exception_handler(InfrelayError)
