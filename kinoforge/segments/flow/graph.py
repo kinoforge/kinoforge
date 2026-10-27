@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Dict, List, Optional, Set, Tuple, Type
+from typing import Annotated, Any, Dict, List, Optional, Set, Tuple, Type
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -37,12 +37,17 @@ class FlowGraph(BaseModel):
 
     nodes: List[FlowNode] = Field(default_factory=list, max_length=MAX_NODES)
     edges: List[FlowEdge] = Field(default_factory=list, max_length=MAX_EDGES)
+    # The caller's own cap per node type, in place of the type's `most`.
+    limits: Dict[str, Annotated[int, Field(ge=1, le=MAX_NODES)]] = Field(
+        default_factory=dict, max_length=len(NODES)
+    )
 
 
 class IssueCode(StrEnum):
     EMPTY = "empty"
     DUPLICATE_NODE = "duplicate_node"
     UNKNOWN_TYPE = "unknown_type"
+    TOO_MANY = "too_many"
     BAD_CONFIG = "bad_config"
     UNKNOWN_NODE = "unknown_node"
     UNKNOWN_PORT = "unknown_port"
@@ -108,6 +113,7 @@ class FlowValidator:
         self._issues.append(Issue(code, message, **where))
 
     def _nodes(self) -> None:
+        count: Dict[str, int] = defaultdict(int)
         for node in self._graph.nodes:
             if node.id in self._specs:
                 self._issue(IssueCode.DUPLICATE_NODE, "Two nodes share an id.", node=node.id)
@@ -117,6 +123,11 @@ class FlowValidator:
                 self._issue(IssueCode.UNKNOWN_TYPE, f"Unknown node: {node.type}.", node=node.id)
                 continue
             self._specs[node.id] = spec
+            count[node.type] += 1
+            most = self._graph.limits.get(node.type, spec.most)
+            if count[node.type] == most + 1:
+                self._issue(IssueCode.TOO_MANY, f"At most {most} {spec.label} nodes.",
+                            node=node.id)
             try:
                 spec.config.model_validate(node.config)
             except ValidationError as exc:

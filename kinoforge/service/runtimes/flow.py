@@ -12,6 +12,7 @@ from kinoforge.schemas.flow import FlowNodeRunRequest
 from kinoforge.segments.flow.graph import FlowGraph, FlowValidator
 from kinoforge.segments.flow.nodes import NODES, FlowError, NodeContext, NodeGroup, NodeSpec
 from kinoforge.segments.flow.ports import MEDIA_TYPES, Port, PortType
+from kinoforge.segments.flow.templates import FlowTemplates
 from kinoforge.service.executions import executions
 from kinoforge.service.settings import ServiceSettings
 
@@ -73,6 +74,7 @@ class FlowRuntime:
             "nodes": [spec.describe() for spec in NODES.values()],
             "port_types": [kind.value for kind in PortType],
             "groups": [group.value for group in NodeGroup],
+            "templates": FlowTemplates.all(),
         }
 
     @staticmethod

@@ -41,6 +41,7 @@ class Writer(NodeSpec):
     config = WriterConfig
     media = NodeMedia.TEXT
     needs = (HostNeed.SCREENWRITER,)
+    most = 2
 
     def run(self, ctx: NodeContext, inputs: Dict[str, Any], config: Any) -> Dict[str, Any]:
         writer = ctx.host.get(HostNeed.SCREENWRITER.value)
@@ -68,6 +69,30 @@ class Writer(NodeSpec):
         if not result.get("ok") or not isinstance(result.get("story"), dict):
             raise FlowError(str(result.get("error") or "the screenwriter wrote no story"))
         return {"story": result["story"]}
+
+
+class SceneConfig(NodeConfig):
+    prompt: str = Field(
+        min_length=1, max_length=4000, title="Scene", json_schema_extra={"widget": "textarea"}
+    )
+    narration: str = Field(
+        default="", max_length=1000, title="Narration", json_schema_extra={"widget": "textarea"}
+    )
+
+
+class Scene(NodeSpec):
+    type = "story.scene"
+    group = NodeGroup.STORY
+    label = "Scene"
+    description = "One scene you write. Chain scenes to tell a story in order."
+    inputs = (Port("story", "Before", PortType.STORY),)
+    outputs = (Port("story", "Story", PortType.STORY),)
+    config = SceneConfig
+
+    def run(self, ctx: NodeContext, inputs: Dict[str, Any], config: Any) -> Dict[str, Any]:
+        story = dict(inputs.get("story") or {})
+        scene = {"prompt": config.prompt.strip(), "narration": config.narration.strip()}
+        return {"story": {**story, "scenes": [*(story.get("scenes") or []), scene]}}
 
 
 class Scenes(NodeSpec):

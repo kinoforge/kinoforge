@@ -102,3 +102,29 @@ def test_the_catalog_describes_every_node_with_its_config_schema():
     assert image["media"] == "image"
     assert image["config"]["properties"]["seed"]["minimum"] == 0
     assert [port["name"] for port in image["inputs"]] == ["prompt", "reference"]
+
+
+def test_each_node_type_has_a_cap_the_caller_may_set():
+    scenes = [(f"s{i}", "story.scene", {"prompt": f"Shot {i}"}) for i in range(3)]
+    links = [(f"s{i}", "story", f"s{i + 1}", "story") for i in range(2)]
+    assert _graph(scenes, links).limits == {}
+    assert FlowValidator(_graph(scenes, links)).check().ok
+
+    capped = FlowGraph.model_validate({**_graph(scenes, links).model_dump(),
+                                       "limits": {"story.scene": 2}})
+    issues = FlowValidator(capped).check().issues
+    assert [(i.code, i.node) for i in issues] == [(IssueCode.TOO_MANY, "s2")]
+
+    writers = _graph([(f"w{i}", "story.write", {}) for i in range(3)])
+    assert IssueCode.TOO_MANY in _codes(writers)
+
+
+def test_the_story_template_is_a_sound_flow_once_its_brief_is_written():
+    template = FlowRuntime.catalog()["templates"]["story"]
+    nodes = [{k: v for k, v in n.items() if k != "position"} for n in template["nodes"]]
+    assert all("position" in n for n in template["nodes"])
+    graph = FlowGraph.model_validate({"nodes": nodes, "edges": template["edges"]})
+    assert _codes(graph) == [IssueCode.BAD_CONFIG]
+    nodes[0]["config"] = {"text": "A lighthouse keeper adopts a cat."}
+    graph = FlowGraph.model_validate({"nodes": nodes, "edges": template["edges"]})
+    assert FlowValidator(graph).check().ok

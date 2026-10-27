@@ -93,6 +93,15 @@ def test_scenes_split_a_story_into_prompts_and_lines(tmp_path):
                    "narration": ["It rained.", "A cat came."], "title": "Keeper"}
 
 
+def test_chained_scenes_add_up_to_a_story_in_order(tmp_path):
+    runtime = _runtime(tmp_path)
+    first = _run(runtime, "story.scene", {"prompt": " a storm ", "narration": "It rained."})
+    story = first["outputs"]["story"]
+    second = _run(runtime, "story.scene", {"prompt": "a cat"}, {"story": story})
+    assert second["outputs"]["story"] == {"scenes": [
+        {"prompt": "a storm", "narration": "It rained."}, {"prompt": "a cat", "narration": ""}]}
+
+
 def test_clips_join_fitted_to_the_first_and_take_sound_over_them(tmp_path):
     runtime = _runtime(tmp_path)
     _clip(tmp_path / "a.mp4", 1.0)

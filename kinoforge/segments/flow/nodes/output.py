@@ -16,15 +16,17 @@ class Save(NodeSpec):
     type = "output.save"
     group = NodeGroup.OUTPUT
     label = "Result"
-    description = "Keeps what reaches it as the flow's result."
+    description = "Keeps what reaches it as the flow's result and shows it beside the canvas."
     inputs = (
         Port("video", "Video", PortType.VIDEO),
         Port("image", "Image", PortType.IMAGE),
         Port("audio", "Audio", PortType.AUDIO),
+        Port("text", "Text", PortType.TEXT),
     )
     config = SaveConfig
     host = True
-    one_of = ("video", "image", "audio")
+    one_of = ("video", "image", "audio", "text")
+    most = 4
 
 
 class Privacy(StrEnum):
@@ -53,3 +55,4 @@ class Publish(NodeSpec):
     inputs = (Port("video", "Video", PortType.VIDEO, required=True),)
     config = PublishConfig
     host = True
+    most = 2

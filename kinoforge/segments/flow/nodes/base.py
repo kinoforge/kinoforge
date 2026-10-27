@@ -136,6 +136,8 @@ class NodeSpec:
     host: ClassVar[bool] = False
     # At least one of these inputs must be connected (beyond each port's own `required`).
     one_of: ClassVar[Tuple[str, ...]] = ()
+    # How many of this type one flow may hold; the caller may set its own.
+    most: ClassVar[int] = 20
 
     @classmethod
     def input(cls, name: str) -> Optional[Port]:
@@ -159,6 +161,7 @@ class NodeSpec:
             "needs": [need.value for need in cls.needs],
             "host": cls.host,
             "one_of": list(cls.one_of),
+            "most": cls.most,
         }
 
     @classmethod

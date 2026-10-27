@@ -23,6 +23,9 @@ class FlowCatalogResponse(BaseModel):
     )
     port_types: List[str]
     groups: List[str]
+    templates: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict, description="Ready flows by name, with node positions."
+    )
 
 
 class FlowCheckResponse(BaseModel):
