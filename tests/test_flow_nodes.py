@@ -156,5 +156,11 @@ def test_the_screenwriter_writes_from_the_brief_with_what_the_caller_resolved(tm
     assert out["outputs"] == {"story": {"title": "Keeper", "scenes": []}}
     assert out["meter_events"] == [{"action": "agent_run", "qty": 1}]
     assert out["inference"] == [{"task": "story.write", "credits": 2}]
+    assert seen["request"].pick == {}
+
+    picked = {"provider": "openrouter", "model": "deepseek/deepseek-chat"}
+    _runtime(tmp_path).run(request.model_copy(update={"node": request.node.model_copy(
+        update={"config": {"model": picked}})}))
+    assert seen["request"].pick == picked
     with pytest.raises(FlowError, match="not set up"):
         _run(_runtime(tmp_path), "story.write", inputs={"brief": "x"})

@@ -8,11 +8,13 @@ from kinoforge.schemas import StoryWriteRequest
 from kinoforge.segments.flow.nodes.base import (
     FlowError,
     HostNeed,
+    ModelChoice,
     NodeConfig,
     NodeContext,
     NodeGroup,
     NodeMedia,
     NodeSpec,
+    model_field,
 )
 from kinoforge.segments.flow.nodes.generate import Aspect
 from kinoforge.segments.flow.ports import Port, PortType
@@ -25,6 +27,7 @@ TITLE_CHARS = 60
 
 
 class WriterConfig(NodeConfig):
+    model: ModelChoice = model_field(NodeMedia.TEXT)
     scene_count: int = Field(default=6, ge=1, le=20, title="Scenes")
     aspect_ratio: VideoAspectRatio = Field(default=VideoAspectRatio.PORTRAIT, title="Aspect")
     language: str = Field(default="", max_length=16, pattern=r"^[A-Za-z-]*$", title="Language")
@@ -59,6 +62,7 @@ class Writer(NodeSpec):
                 "language": config.language,
                 "genre": config.genre,
             },
+            **({"pick": config.model.model_dump()} if config.model.model else {}),
         })
         response = StoryRuntime(ctx.settings or ServiceSettings.from_env()).write(
             request, is_cancelled=ctx.is_cancelled
