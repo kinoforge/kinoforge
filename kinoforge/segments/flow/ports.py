@@ -30,6 +30,8 @@ class Port:
     many: bool = False
     # The most a `many` input takes; 0 is the run's own cap.
     most: int = 0
+    # Shown on an input only some models use.
+    hint: str = ""
 
     def describe(self) -> dict:
         return {
@@ -39,4 +41,5 @@ class Port:
             "required": self.required,
             "many": self.many,
             "most": self.most,
+            **({"hint": self.hint} if self.hint else {}),
         }

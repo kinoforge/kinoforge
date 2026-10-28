@@ -61,6 +61,16 @@ def test_an_image_node_paints_its_prompt_from_its_reference(tmp_path):
     assert (task, ref, prompt, reference.data) == ("image", "fal/flux", "a lighthouse", PNG)
 
 
+def test_a_video_node_makes_its_clip_to_the_audio_it_is_given(tmp_path):
+    fake = FakeInfrelay()
+    fake.video = lambda task, ref, prompt, spec: fake.calls.append(spec) or b"mp4"
+    (tmp_path / "line.mp3").write_bytes(b"ID3voice")
+    _run(_runtime(tmp_path, fake), "generate.video", {},
+         {"prompt": "a keeper waves", "audio": {"path": "line.mp3"}})
+
+    assert fake.calls[0].audio.data == b"ID3voice"
+
+
 def test_a_node_is_refused_what_its_ports_do_not_take(tmp_path):
     runtime = _runtime(tmp_path)
     with pytest.raises(FlowError, match="needs Prompt"):

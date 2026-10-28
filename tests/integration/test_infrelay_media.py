@@ -104,3 +104,13 @@ def test_a_clip_that_ends_on_a_still_sends_it_as_the_last_frame():
     )
     assert client._video_payload("p", inline)["last_frame_b64"] == base64.b64encode(b"end").decode()
     assert "last_frame_b64" not in client._video_payload("p", VideoSpec(5, 720, "9:16"))
+
+
+def test_a_clip_made_to_a_soundtrack_sends_it_as_audio():
+    client = InfrelayClient("http://infrelay:8090/")
+    linked = VideoSpec(5, 720, "9:16", audio=MediaFile(url="https://assets/line"))
+    inline = VideoSpec(5, 720, "9:16", audio=MediaFile(data=b"line"))
+
+    assert client._video_payload("p", linked)["audio_url"] == "https://assets/line"
+    assert client._video_payload("p", inline)["audio_b64"] == base64.b64encode(b"line").decode()
+    assert "audio_b64" not in client._video_payload("p", VideoSpec(5, 720, "9:16"))

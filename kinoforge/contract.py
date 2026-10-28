@@ -120,6 +120,8 @@ class VideoSpec:
     music: bool = True
     references: Tuple[MediaFile, ...] = ()
     last_frame: Optional[MediaFile] = None
+    # A soundtrack a model that takes one makes the clip to.
+    audio: Optional[MediaFile] = None
 
 
 class JobKind(StrEnum):

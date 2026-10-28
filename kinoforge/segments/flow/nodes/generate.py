@@ -101,6 +101,15 @@ class TextGen(NodeSpec):
         return {"text": text.strip()}
 
 
+class ModelHint(StrEnum):
+    """What only some models take; the rest leave it out."""
+
+    REFERENCE = "Only models that take reference images use it."
+    LAST_FRAME = "Only models that take an end frame use it."
+    SOUND = "Only models that make their own sound use it."
+    AUDIO = "Only models that take audio use it; the clip is made to it."
+
+
 class ImageGenConfig(NodeConfig):
     style: str = style_field()
     aspect_ratio: Aspect = Field(default=Aspect.PORTRAIT, title="Aspect")
@@ -114,7 +123,7 @@ class ImageGen(NodeSpec):
     group = NodeGroup.GENERATE
     label = "Image"
     description = "Paints the prompt, optionally from a reference image."
-    inputs = (PROMPT, Port("reference", "Reference", PortType.IMAGE))
+    inputs = (PROMPT, Port("reference", "Reference", PortType.IMAGE, hint=ModelHint.REFERENCE))
     outputs = (Port("image", "Image", PortType.IMAGE),)
     config = ImageGenConfig
     media = NodeMedia.IMAGE
@@ -141,7 +150,7 @@ class VideoGenConfig(NodeConfig):
         description="The length asked for; a model makes the nearest length it supports.",
     )
     aspect_ratio: Aspect = Field(default=Aspect.PORTRAIT, title="Aspect")
-    music: bool = Field(default=False, title="Model's own music")
+    music: bool = Field(default=False, title="Model's own music", description=ModelHint.SOUND)
     model: ModelChoice = model_field(NodeMedia.VIDEO)
 
 
@@ -156,9 +165,13 @@ class VideoGen(NodeSpec):
     inputs = (
         PROMPT,
         Port("first_frame", "First frame", PortType.IMAGE),
-        Port("last_frame", "Last frame", PortType.IMAGE),
-        Port("dialogue", "Spoken line", PortType.TEXT),
-        Port("references", "References", PortType.IMAGE, many=True, most=MAX_REFERENCES),
+        Port("last_frame", "Last frame", PortType.IMAGE, hint=ModelHint.LAST_FRAME),
+        Port("dialogue", "Spoken line", PortType.TEXT, hint=ModelHint.SOUND),
+        Port("audio", "Audio", PortType.AUDIO, hint=ModelHint.AUDIO),
+        Port(
+            "references", "References", PortType.IMAGE, many=True, most=MAX_REFERENCES,
+            hint=ModelHint.REFERENCE,
+        ),
     )
     outputs = (Port("video", "Video", PortType.VIDEO),)
     config = VideoGenConfig
@@ -179,6 +192,7 @@ class VideoGen(NodeSpec):
             ),
             dialogue=str(inputs.get("dialogue") or ""),
             music=config.music,
+            audio=ctx.file(inputs.get("audio")),
         )
         prompt = FlowStyle.video(ctx, inputs["prompt"], config.style)
         data = ctx.infrelay.video(AITask.VIDEO, config.model.ref(), prompt, spec)

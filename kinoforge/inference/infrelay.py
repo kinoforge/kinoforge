@@ -249,6 +249,7 @@ class InfrelayClient:
         self._add_file(payload, "reference", spec.image)
         self._add_file(payload, "last_frame", spec.last_frame)
         self._add_files(payload, "ref_images", spec.references)
+        self._add_file(payload, "audio", spec.audio)
         self._add_enhance(payload, spec.enhance, spec.enhance_style)
         if spec.dialogue:
             payload["dialogue"] = spec.dialogue
