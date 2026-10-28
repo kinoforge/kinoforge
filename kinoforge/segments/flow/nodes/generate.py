@@ -151,6 +151,11 @@ class VideoGenConfig(NodeConfig):
     )
     aspect_ratio: Aspect = Field(default=Aspect.PORTRAIT, title="Aspect")
     music: bool = Field(default=False, title="Model's own music", description=ModelHint.SOUND)
+    speaker: str = Field(
+        default="", max_length=60, title="Spoken by",
+        description="Who says the spoken line: blank for a narrator off camera, a name for that "
+        "person on camera.",
+    )
     model: ModelChoice = model_field(NodeMedia.VIDEO)
 
 
@@ -174,6 +179,7 @@ class VideoGen(NodeSpec):
         ),
     )
     outputs = (Port("video", "Video", PortType.VIDEO),)
+    apart = ("dialogue", "audio")
     config = VideoGenConfig
     media = NodeMedia.VIDEO
     needs = (HostNeed.PRESETS,)
@@ -191,6 +197,7 @@ class VideoGen(NodeSpec):
                 file for media in inputs.get("references") or [] if (file := ctx.file(media))
             ),
             dialogue=str(inputs.get("dialogue") or ""),
+            speaker=config.speaker.strip(),
             music=config.music,
             audio=ctx.file(inputs.get("audio")),
         )

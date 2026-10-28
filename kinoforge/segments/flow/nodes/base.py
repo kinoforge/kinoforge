@@ -166,6 +166,8 @@ class NodeSpec:
     host: ClassVar[bool] = False
     # At least one of these inputs must be connected (beyond each port's own `required`).
     one_of: ClassVar[Tuple[str, ...]] = ()
+    # At most one of these inputs may be connected: they say the same thing two ways.
+    apart: ClassVar[Tuple[str, ...]] = ()
     # How many of this type one flow may hold; the caller may set its own.
     most: ClassVar[int] = 20
     # A block holds other nodes (their `parent`); `chain` is the input linking it to the
@@ -196,6 +198,7 @@ class NodeSpec:
             "needs": [need.value for need in cls.needs],
             "host": cls.host,
             "one_of": list(cls.one_of),
+            "apart": list(cls.apart),
             "most": cls.most,
             "block": cls.block,
             "chain": cls.chain,

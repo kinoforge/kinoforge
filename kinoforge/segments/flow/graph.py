@@ -58,6 +58,7 @@ class IssueCode(StrEnum):
     DUPLICATE_EDGE = "duplicate_edge"
     PORT_TAKEN = "port_taken"
     MISSING_INPUT = "missing_input"
+    TOO_MANY_INPUTS = "too_many_inputs"
     CYCLE = "cycle"
     BAD_PARENT = "bad_parent"
     CROSS_BLOCK = "cross_block"
@@ -226,6 +227,12 @@ class FlowValidator:
                     port.label for port in spec.inputs if port.name in spec.one_of
                 )
                 self._issue(IssueCode.MISSING_INPUT, f"{spec.label} needs {labels}.",
+                            node=node_id)
+            linked = [port for port in spec.inputs
+                      if port.name in spec.apart and incoming.get((node_id, port.name))]
+            if len(linked) > 1:
+                labels = " or ".join(port.label for port in linked)
+                self._issue(IssueCode.TOO_MANY_INPUTS, f"{spec.label}: use {labels}, not both.",
                             node=node_id)
 
     def _order(self) -> Optional[List[str]]:

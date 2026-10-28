@@ -59,6 +59,18 @@ def test_links_must_join_ports_of_one_type():
     assert IssueCode.TYPE_MISMATCH in _codes(graph)
 
 
+def test_a_clip_takes_a_spoken_line_or_an_audio_but_not_both():
+    nodes = [BRIEF, ("line", "input.text", {"text": "Hello."}),
+             ("voice", "input.audio", {"asset": "a.mp3"}), ("move", "generate.video", {})]
+    links = [("brief", "text", "move", "prompt"), ("line", "text", "move", "dialogue")]
+    check = FlowValidator(_graph(nodes, [*links, ("voice", "audio", "move", "audio")])).check()
+
+    assert _codes(_graph(nodes, links)) == []
+    assert [(i.code, i.node, i.message) for i in check.issues] == [
+        (IssueCode.TOO_MANY_INPUTS, "move", "Video: use Spoken line or Audio, not both."),
+    ]
+
+
 def test_a_single_input_takes_one_link_and_a_list_input_many():
     graph = _graph(
         [BRIEF, ("other", "input.text", {"text": "x"}), ("paint", "generate.image", {}),

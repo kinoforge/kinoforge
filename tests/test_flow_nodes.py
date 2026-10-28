@@ -71,6 +71,15 @@ def test_a_video_node_makes_its_clip_to_the_audio_it_is_given(tmp_path):
     assert fake.calls[0].audio.data == b"ID3voice"
 
 
+def test_a_spoken_line_is_said_by_the_speaker_the_node_names(tmp_path):
+    fake = FakeInfrelay()
+    fake.video = lambda task, ref, prompt, spec: fake.calls.append(spec) or b"mp4"
+    _run(_runtime(tmp_path, fake), "generate.video", {"speaker": " Maya "},
+         {"prompt": "a keeper waves", "dialogue": "Hello."})
+
+    assert (fake.calls[0].dialogue, fake.calls[0].speaker) == ("Hello.", "Maya")
+
+
 def test_a_node_is_refused_what_its_ports_do_not_take(tmp_path):
     runtime = _runtime(tmp_path)
     with pytest.raises(FlowError, match="needs Prompt"):
