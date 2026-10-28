@@ -91,10 +91,12 @@ class FlowTemplates:
             links.append((f"{block}_sound", "video", block, "clip"))
             if n > 1:
                 links.append((f"scene{n - 1}", "film", block, "before"))
+        # The film leaves each scene low on its right, so the cut sits beside the last one's.
         last = f"scene{SCENES}"
+        beside = (SCENES - 1) * 4 * ROW + 3 * ROW
         placed += [
-            ("cut", "edit.concat", cls.SCENE_WIDTH + STEP // 2, 4 * ROW, {}, None),
-            ("result", "output.save", cls.SCENE_WIDTH + STEP * 3 // 2, 4 * ROW, {}, None),
+            ("cut", "edit.concat", cls.SCENE_WIDTH + STEP // 2, beside, {}, None),
+            ("result", "output.save", cls.SCENE_WIDTH + STEP * 3 // 2, beside, {}, None),
         ]
         links += [(last, "film", "cut", "videos"), ("cut", "video", "result", "video")]
         return tuple(placed), tuple(links)
