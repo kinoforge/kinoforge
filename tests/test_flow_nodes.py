@@ -164,3 +164,47 @@ def test_the_screenwriter_writes_from_the_brief_with_what_the_caller_resolved(tm
     assert seen["request"].pick == picked
     with pytest.raises(FlowError, match="not set up"):
         _run(_runtime(tmp_path), "story.write", inputs={"brief": "x"})
+
+
+def _presets(body, motion=""):
+    return {"schema_version": 1, "id": "p", "version": "1", "engine": {"minimum": "0.1.0"},
+            "definitions": [{"type": "preset", "key": "anime", "body": body,
+                             "extras": {"motion": motion}}]}
+
+
+def test_an_art_style_is_laid_over_the_prompt_from_the_presets_the_caller_sent(tmp_path):
+    fake = FakeInfrelay()
+    request = FlowNodeRunRequest.model_validate({
+        "run_id": "r1", "out_dir": "flows/u1/r1/n1",
+        "host": {"presets": _presets("Anime art of $prompt, cel shaded.")},
+        "node": {"id": "n1", "type": "generate.image", "config": {"style": "anime"}},
+        "inputs": {"prompt": "a lighthouse"},
+    })
+    _runtime(tmp_path, fake).run(request)
+    assert fake.calls[0][2] == "Anime art of a lighthouse, cel shaded"
+
+    with pytest.raises(FlowError, match="art style is not set up"):
+        _run(_runtime(tmp_path), "generate.image", {"style": "anime"}, {"prompt": "x"})
+
+
+def test_a_clip_is_made_small_and_carries_its_styles_motion(tmp_path):
+    from kinoforge.segments.flow.nodes.generate import FlowStyle, VideoGen
+
+    class Ctx:
+        host = {"presets": _presets("Anime art of $prompt.", "Slow dolly in.")}
+
+    prompt = FlowStyle.video(Ctx(), "a lighthouse", "anime")
+    assert "a lighthouse" in prompt and "Slow dolly in" in prompt and "Anime art of" in prompt
+    assert FlowStyle.video(Ctx(), "a lighthouse", "") == "a lighthouse"
+    assert int(VideoGen.resolution) == 480
+
+
+def test_settings_a_node_no_longer_has_still_load_and_languages_are_picked():
+    from kinoforge.segments.flow.nodes.generate import VideoGenConfig, VoiceConfig
+
+    assert VideoGenConfig.model_validate({"resolution": 720, "seconds": 4}).seconds == 4
+    assert VoiceConfig.model_validate({"voice": "x", "language": "it"}).language.value == "it"
+    with pytest.raises(ValueError):
+        VoiceConfig.model_validate({"language": "klingon"})
+    labels = VoiceConfig.model_json_schema()["properties"]["language"]["labels"]
+    assert labels[""] == "Auto" and labels["hinglish"] == "Hinglish"

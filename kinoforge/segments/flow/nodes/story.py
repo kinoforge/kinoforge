@@ -14,11 +14,13 @@ from kinoforge.segments.flow.nodes.base import (
     NodeGroup,
     NodeMedia,
     NodeSpec,
+    language_field,
     model_field,
 )
 from kinoforge.segments.flow.nodes.generate import Aspect
 from kinoforge.segments.flow.ports import Port, PortType
 from kinoforge.segments.story.formats import VideoAspectRatio
+from kinoforge.segments.story.languages import NarrationLanguage
 from kinoforge.service.runtimes.story import StoryRuntime
 from kinoforge.service.settings import ServiceSettings
 
@@ -30,7 +32,7 @@ class WriterConfig(NodeConfig):
     model: ModelChoice = model_field(NodeMedia.TEXT)
     scene_count: int = Field(default=6, ge=1, le=20, title="Scenes")
     aspect_ratio: VideoAspectRatio = Field(default=VideoAspectRatio.PORTRAIT, title="Aspect")
-    language: str = Field(default="", max_length=16, pattern=r"^[A-Za-z-]*$", title="Language")
+    language: NarrationLanguage = language_field()
     genre: str = Field(default="", max_length=60, title="Genre")
 
 
@@ -59,7 +61,7 @@ class Writer(NodeSpec):
                 "description": brief,
                 "scene_count": config.scene_count,
                 "aspect_ratio": config.aspect_ratio.value,
-                "language": config.language,
+                "language": config.language.value,
                 "genre": config.genre,
             },
             **({"pick": config.model.model_dump()} if config.model.model else {}),

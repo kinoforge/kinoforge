@@ -7,7 +7,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, List, Mapping, Optional, Tuple, Type
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from kinoforge.contract import MediaFile, ModelRef
 from kinoforge.inference import InfrelayClient
@@ -41,10 +41,22 @@ class HostNeed(StrEnum):
     """What the caller resolves and sends with a node's run."""
 
     SCREENWRITER = "screenwriter"
+    # The image presets (art styles) a node's `style` names, as a definition bundle.
+    PRESETS = "presets"
 
 
 class NodeConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+    # Settings a node no longer has; flows saved with them still load.
+    retired: ClassVar[Tuple[str, ...]] = ()
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_retired(cls, data: Any) -> Any:
+        if isinstance(data, dict) and cls.retired:
+            return {k: v for k, v in data.items() if k not in cls.retired}
+        return data
 
 
 class ModelChoice(BaseModel):
@@ -57,6 +69,24 @@ class ModelChoice(BaseModel):
 
     def ref(self) -> ModelRef:
         return ModelRef.from_mapping(self.model_dump())
+
+
+def language_field() -> Any:
+    from kinoforge.segments.story.languages import LANGUAGES, NarrationLanguage
+
+    labels = {"": "Auto", **{k: name.split(",", 1)[0] for k, (name, _) in LANGUAGES.items()}}
+    return Field(
+        default=NarrationLanguage.AUTO, title="Language", json_schema_extra={"labels": labels}
+    )
+
+
+def style_field() -> Any:
+    """An image preset key; the caller lists the account's presets and sends their
+    definitions as `host.presets`."""
+    return Field(
+        default="", max_length=120, pattern=r"^[A-Za-z0-9_.:-]*$", title="Art style",
+        json_schema_extra={"widget": "style"},
+    )
 
 
 def model_field(media: NodeMedia) -> Any:

@@ -6,7 +6,10 @@ from typing import Any, Dict
 from pydantic import Field
 
 from kinoforge.contract import AITask, ImageSpec, VideoSpec
+from kinoforge.definitions import DefinitionBundle
 from kinoforge.segments.flow.nodes.base import (
+    FlowError,
+    HostNeed,
     MediaKinds,
     ModelChoice,
     NodeConfig,
@@ -14,9 +17,14 @@ from kinoforge.segments.flow.nodes.base import (
     NodeGroup,
     NodeMedia,
     NodeSpec,
+    language_field,
     model_field,
+    style_field,
 )
 from kinoforge.segments.flow.ports import Port, PortType
+from kinoforge.segments.story.languages import NarrationLanguage
+from kinoforge.segments.story.media.prompt_text import LabeledPrompt
+from kinoforge.service.runtimes.presets import BundleImagePresets
 
 
 class Aspect(StrEnum):
@@ -33,6 +41,37 @@ class Resolution(IntEnum):
 
 PROMPT = Port("prompt", "Prompt", PortType.TEXT, required=True)
 MAX_REFERENCES = 5
+ENGINE_VERSION = "0.1.0"
+
+
+class FlowStyle:
+    """A node's art style: an image preset the caller sent, laid over its prompt the way
+    the story engine does."""
+
+    @staticmethod
+    def _presets(ctx: NodeContext, key: str) -> BundleImagePresets:
+        bundle = ctx.host.get(HostNeed.PRESETS.value)
+        if not isinstance(bundle, dict):
+            raise FlowError("the art style is not set up")
+        return BundleImagePresets(
+            DefinitionBundle.from_mapping(bundle, engine_version=ENGINE_VERSION),
+            scene_key=key, portrait_key=key, negative_key=key,
+        )
+
+    @classmethod
+    def image(cls, ctx: NodeContext, prompt: str, key: str) -> str:
+        return cls._presets(ctx, key).image_scene(prompt, "", key=key) if key else prompt
+
+    @classmethod
+    def video(cls, ctx: NodeContext, prompt: str, key: str) -> str:
+        if not key:
+            return prompt
+        presets = cls._presets(ctx, key)
+        return LabeledPrompt([
+            ("", prompt),
+            ("Cinematography", presets.image_motion(prompt, "", key=key)),
+            ("Style", presets.image_scene("", "", key=key)),
+        ]).join()
 
 
 class TextGenConfig(NodeConfig):
@@ -63,6 +102,7 @@ class TextGen(NodeSpec):
 
 
 class ImageGenConfig(NodeConfig):
+    style: str = style_field()
     aspect_ratio: Aspect = Field(default=Aspect.PORTRAIT, title="Aspect")
     negative: str = Field(default="", max_length=2000, title="Avoid")
     seed: int = Field(default=0, ge=0, le=2**31 - 1, title="Seed (0 is random)")
@@ -78,6 +118,7 @@ class ImageGen(NodeSpec):
     outputs = (Port("image", "Image", PortType.IMAGE),)
     config = ImageGenConfig
     media = NodeMedia.IMAGE
+    needs = (HostNeed.PRESETS,)
 
     def run(self, ctx: NodeContext, inputs: Dict[str, Any], config: Any) -> Dict[str, Any]:
         spec = ImageSpec(
@@ -86,13 +127,19 @@ class ImageGen(NodeSpec):
             negative=config.negative,
             reference=ctx.file(inputs.get("reference")),
         )
-        data = ctx.infrelay.image(AITask.IMAGE, config.model.ref(), inputs["prompt"], spec)
+        prompt = FlowStyle.image(ctx, inputs["prompt"], config.style)
+        data = ctx.infrelay.image(AITask.IMAGE, config.model.ref(), prompt, spec)
         return {"image": ctx.write("image", data, MediaKinds.image_suffix(data))}
 
 
 class VideoGenConfig(NodeConfig):
-    seconds: int = Field(default=5, ge=1, le=20, title="Seconds")
-    resolution: Resolution = Field(default=Resolution.HD, title="Resolution")
+    retired = ("resolution",)
+
+    style: str = style_field()
+    seconds: int = Field(
+        default=5, ge=1, le=20, title="Seconds",
+        description="The length asked for; a model makes the nearest length it supports.",
+    )
     aspect_ratio: Aspect = Field(default=Aspect.PORTRAIT, title="Aspect")
     music: bool = Field(default=False, title="Model's own music")
     model: ModelChoice = model_field(NodeMedia.VIDEO)
@@ -116,11 +163,14 @@ class VideoGen(NodeSpec):
     outputs = (Port("video", "Video", PortType.VIDEO),)
     config = VideoGenConfig
     media = NodeMedia.VIDEO
+    needs = (HostNeed.PRESETS,)
+    # Clips are made small; an upscale comes after.
+    resolution = Resolution.SD
 
     def run(self, ctx: NodeContext, inputs: Dict[str, Any], config: Any) -> Dict[str, Any]:
         spec = VideoSpec(
             seconds=config.seconds,
-            resolution=int(config.resolution),
+            resolution=int(self.resolution),
             aspect_ratio=config.aspect_ratio.value,
             image=ctx.file(inputs.get("first_frame")),
             last_frame=ctx.file(inputs.get("last_frame")),
@@ -130,13 +180,16 @@ class VideoGen(NodeSpec):
             dialogue=str(inputs.get("dialogue") or ""),
             music=config.music,
         )
-        data = ctx.infrelay.video(AITask.VIDEO, config.model.ref(), inputs["prompt"], spec)
+        prompt = FlowStyle.video(ctx, inputs["prompt"], config.style)
+        data = ctx.infrelay.video(AITask.VIDEO, config.model.ref(), prompt, spec)
         return {"video": ctx.write("video", data, ".mp4")}
 
 
 class VoiceConfig(NodeConfig):
-    voice: str = Field(default="", max_length=100, pattern=r"^[A-Za-z0-9_.:-]*$", title="Voice")
-    language: str = Field(default="", max_length=16, pattern=r"^[A-Za-z-]*$", title="Language")
+    # The model is the voice: a voice model's list is its voices.
+    retired = ("voice",)
+
+    language: NarrationLanguage = language_field()
     model: ModelChoice = model_field(NodeMedia.TTS)
 
 
@@ -152,8 +205,7 @@ class VoiceGen(NodeSpec):
 
     def run(self, ctx: NodeContext, inputs: Dict[str, Any], config: Any) -> Dict[str, Any]:
         data = ctx.infrelay.speech(
-            AITask.AUDIO, config.model.ref(), inputs["text"], voice=config.voice,
-            language=config.language,
+            AITask.AUDIO, config.model.ref(), inputs["text"], language=config.language.value,
         )
         return {"audio": ctx.write("audio", data, MediaKinds.audio_suffix(data))}
 
