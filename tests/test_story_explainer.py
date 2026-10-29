@@ -101,6 +101,15 @@ def test_a_refused_board_goes_back_once_with_what_was_wrong():
     assert len(repairs) == 2 and "board.mood" in repairs[0]
 
 
+def test_an_answer_that_is_not_json_goes_back_once_too():
+    broken = json.JSONDecodeError("Expecting ',' delimiter", "{", 1)
+    fake = _Writer({1: [broken, GOOD], 3: [broken, broken]})
+    result = BoardWriter(fake.ports(), KIT).draw(RECORD)
+    assert [b["index"] for b in result["boards"]] == [0]
+    assert "not valid JSON" in result["errors"][0]["error"]
+    assert sum("was refused" in user for _, user in fake.prompts) == 2
+
+
 def test_no_board_at_all_fails_the_operation():
     fake = _Writer({1: [RuntimeError("down")], 3: [RuntimeError("down")]})
     result = BoardWriter(fake.ports(), KIT).draw(RECORD)

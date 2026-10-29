@@ -52,6 +52,9 @@ class StageWriter:
                     AITask.STORY_BOARD, system, prompt, route=route or ModelRef(),
                     temperature=self.TEMPERATURE, max_tokens=max_tokens,
                 )
+            except json.JSONDecodeError as error:
+                drawn, problems = None, [f"the answer was not valid JSON ({error})"]
+                continue
             except Exception:
                 return None
             drawn = answer.get("stage", answer) if isinstance(answer, dict) else answer

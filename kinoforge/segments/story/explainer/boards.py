@@ -90,6 +90,10 @@ class BoardWriter:
                     AITask.STORY_BOARD, system, prompt, route=route or ModelRef(),
                     temperature=self.TEMPERATURE, max_tokens=max_tokens,
                 )
+            except json.JSONDecodeError as error:
+                # An answer that is not JSON goes back like a refused one, for the writer to fix.
+                board, problems = None, [f"the answer was not valid JSON ({error})"]
+                continue
             except Exception as error:
                 return Drawn(index, None, f"the board writer failed: {error}")
             board = answer.get("board", answer) if isinstance(answer, dict) else answer
