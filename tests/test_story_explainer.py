@@ -123,6 +123,32 @@ def test_problems_name_where_they_are():
     assert any(p.startswith("board.beats[0]") for p in problems)
 
 
+def test_a_piece_that_fits_no_kind_is_told_what_is_wrong_in_its_own_kind():
+    kinds = {
+        "oneOf": [
+            {
+                "type": "object",
+                "required": ["type", "text"],
+                "properties": {"type": {"const": "title"}, "text": {"type": "string"}},
+            },
+            {
+                "type": "object",
+                "required": ["type", "car"],
+                "properties": {
+                    "type": {"const": "drive"},
+                    "car": {"type": "string"},
+                    "label": {"type": "string", "maxLength": 18},
+                },
+            },
+        ]
+    }
+    schema = {"type": "object", "properties": {"piece": kinds}}
+    problems = BoardCheck(schema).problems(
+        {"piece": {"type": "drive", "car": "you", "label": "x" * 19}}
+    )
+    assert problems == [f"board.piece.label: {'x' * 19!r} is too long"]
+
+
 def test_a_staged_kit_writes_the_stage_once_and_hands_it_to_every_board():
     fake = _Writer({"stage": [STAGE], 1: [GOOD], 3: [GOOD]})
     result = BoardWriter(fake.ports(), STAGED).draw(RECORD)

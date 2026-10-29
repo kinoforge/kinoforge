@@ -1,4 +1,4 @@
-"""An explainer's stage: the diagram nodes and code files every board of one video points at,
+"""An explainer's stage: the diagram nodes, code files and road side every board of one video uses,
 written once from the whole narration so boards drawn side by side name the same parts. Its format comes
 from the caller's kit; a kit without a stage, or a caller without the stage prompt, draws
 boards without one."""

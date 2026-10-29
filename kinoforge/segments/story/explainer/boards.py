@@ -2,7 +2,7 @@
 draws. One board per scene, written side by side from its narration against the caller's kit
 (the catalog a writer reads and the JSON schema a board must meet), checked, and sent back to
 the writer once with what was wrong. The video's stage (stage.py) is written first, so every
-board names the same diagram nodes and code files."""
+board names the same diagram nodes, code files and road side."""
 
 import json
 from collections.abc import Mapping
