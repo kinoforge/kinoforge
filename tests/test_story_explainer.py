@@ -1,6 +1,7 @@
 import json
 import threading
 
+from kinoforge.definitions.models import DefinitionError
 from kinoforge.segments.story.explainer.boards import BoardCheck, BoardWriter
 from kinoforge.segments.story.ports import StoryPorts
 
@@ -28,6 +29,18 @@ SCHEMA = {
     },
 }
 KIT = {"catalog": "PIECES: title", "schema": SCHEMA}
+STAGE_SCHEMA = {
+    "type": "object",
+    "required": ["nodes"],
+    "properties": {
+        "nodes": {
+            "type": "array",
+            "items": {"type": "object", "required": ["id", "label"]},
+        }
+    },
+}
+STAGED = {**KIT, "stage": {"catalog": "STAGE: nodes", "schema": STAGE_SCHEMA}}
+STAGE = {"nodes": [{"id": "bee", "label": "Bee"}]}
 GOOD = {"mood": "happy", "beats": [{"cue": "bees", "piece": {"type": "title", "text": "Bees"}}]}
 BAD = {"mood": "angry", "beats": []}
 RECORD = {
@@ -40,13 +53,19 @@ RECORD = {
 
 
 class _Writer:
-    def __init__(self, replies):
+    def __init__(self, replies, missing=()):
         self.replies = dict(replies)
+        self.missing = set(missing)
         self.prompts: list[tuple[str, str]] = []
         self.lock = threading.Lock()
 
+    def prompt(self, key, **params):
+        if key in self.missing:
+            raise DefinitionError(f"required agent definition is unavailable: {key}")
+        return f"<{key}>{params['catalog']}"
+
     def complete_json(self, task, system, user, *, route, temperature, max_tokens):
-        scene = json.loads(user.split("\n\n")[0])["scene"]
+        scene = json.loads(user.split("\n\n")[0]).get("scene", "stage")
         with self.lock:
             self.prompts.append((system, user))
             queue = self.replies[scene]
@@ -58,7 +77,7 @@ class _Writer:
     def ports(self) -> StoryPorts:
         return StoryPorts(
             complete=None, complete_json=self.complete_json, parse_json=json.loads,
-            prompt=lambda key, **params: f"<{key}>{params['catalog']}",
+            prompt=self.prompt,
             contract=lambda _n: "", language_rule=lambda *_: "", story_budget=lambda _o=None: 0,
         )
 
@@ -102,3 +121,26 @@ def test_a_missing_kit_is_refused():
 def test_problems_name_where_they_are():
     problems = BoardCheck(SCHEMA).problems({"mood": "happy", "beats": [{"cue": "x" * 41}]})
     assert any(p.startswith("board.beats[0]") for p in problems)
+
+
+def test_a_staged_kit_writes_the_stage_once_and_hands_it_to_every_board():
+    fake = _Writer({"stage": [STAGE], 1: [GOOD], 3: [GOOD]})
+    result = BoardWriter(fake.ports(), STAGED).draw(RECORD)
+    assert result["stage"] == STAGE
+    briefs = [json.loads(user) for system, user in fake.prompts if system.startswith("<explainer_board>")]
+    assert len(briefs) == 2 and all(brief["stage"] == STAGE["nodes"] for brief in briefs)
+
+
+def test_a_story_keeps_its_stage_while_it_still_meets_the_kit():
+    record = {**RECORD, "story": {**RECORD["story"], "stage": STAGE}}
+    fake = _Writer({1: [GOOD], 3: [GOOD]})
+    result = BoardWriter(fake.ports(), STAGED).draw(record)
+    assert result["stage"] == STAGE
+    assert not any(system.startswith("<explainer_stage>") for system, _ in fake.prompts)
+
+
+def test_boards_are_drawn_without_a_stage_when_the_caller_has_no_stage_prompt():
+    fake = _Writer({1: [GOOD], 3: [GOOD]}, missing={"explainer_stage"})
+    result = BoardWriter(fake.ports(), STAGED).draw(RECORD)
+    assert result["ok"] is True and result["stage"] is None
+    assert all("stage" not in json.loads(user) for _, user in fake.prompts)
