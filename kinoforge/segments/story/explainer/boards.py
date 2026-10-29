@@ -2,7 +2,7 @@
 draws. One board per scene, written side by side from its narration against the caller's kit
 (the catalog a writer reads and the JSON schema a board must meet), checked, and sent back to
 the writer once with what was wrong. The video's stage (stage.py) is written first, so every
-board names the same diagram nodes."""
+board names the same diagram nodes and code files."""
 
 import json
 from collections.abc import Mapping
@@ -99,6 +99,11 @@ class BoardWriter:
         return Drawn(index, None, f"the board was refused: {problems[0]}")
 
     @staticmethod
+    def _shared(stage: dict | None) -> dict:
+        """The parts of the stage a board may point at: the ones it has."""
+        return {name: part for name, part in (stage or {}).items() if part}
+
+    @staticmethod
     def _brief(story: dict, index: int, stage: dict | None = None) -> str:
         scenes = story.get("scenes") or []
 
@@ -113,7 +118,7 @@ class BoardWriter:
                 "narration": narration(index),
                 "before": narration(index - 1),
                 "after": narration(index + 1),
-                **({"stage": stage["nodes"]} if stage and stage.get("nodes") else {}),
+                **({"stage": shared} if (shared := BoardWriter._shared(stage)) else {}),
             },
             ensure_ascii=False,
         )

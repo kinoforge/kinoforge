@@ -128,7 +128,15 @@ def test_a_staged_kit_writes_the_stage_once_and_hands_it_to_every_board():
     result = BoardWriter(fake.ports(), STAGED).draw(RECORD)
     assert result["stage"] == STAGE
     briefs = [json.loads(user) for system, user in fake.prompts if system.startswith("<explainer_board>")]
-    assert len(briefs) == 2 and all(brief["stage"] == STAGE["nodes"] for brief in briefs)
+    assert len(briefs) == 2 and all(brief["stage"] == STAGE for brief in briefs)
+
+
+def test_boards_get_the_stage_parts_it_has():
+    coded = {"nodes": [], "files": [{"id": "stock", "lines": ["class Stock {}"]}]}
+    fake = _Writer({"stage": [coded], 1: [GOOD], 3: [GOOD]})
+    BoardWriter(fake.ports(), STAGED).draw(RECORD)
+    briefs = [json.loads(user) for system, user in fake.prompts if system.startswith("<explainer_board>")]
+    assert all(brief["stage"] == {"files": coded["files"]} for brief in briefs)
 
 
 def test_a_story_keeps_its_stage_while_it_still_meets_the_kit():
