@@ -21,6 +21,7 @@ class AITask(StrEnum):
     STORY_IDEAS = "story.ideas"
     STORY_SUGGEST = "story.suggest"
     STORY_DIRECT = "story.direct"
+    STORY_BOARD = "story.board"
     STORY_TRANSLATE = "story.translate"
     STORY_CAST = "story.cast"
     STORY_IMAGE = "story.image"

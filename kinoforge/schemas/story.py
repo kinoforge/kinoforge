@@ -76,6 +76,7 @@ class StoryOperation(StrEnum):
     REWRITE_CHARACTERS = "rewrite_characters"
     TRANSLATE = "translate"
     DIRECT_SHOTS = "direct_shots"
+    DRAW_BOARDS = "draw_boards"
     SUGGEST_FIELD = "suggest_field"
 
 
@@ -89,7 +90,10 @@ class StoryOperationRequest(OperationRequest):
     operation: StoryOperation
     payload: dict[str, Any] = Field(
         default_factory=dict,
-        description="Operation input: project/story, scene index, language, or instructions.",
+        description=(
+            "Operation input: project/story, scene index, language, or instructions; "
+            "draw_boards also takes the explainer kit ({catalog, schema}) and scene targets."
+        ),
     )
     agent: dict[str, Any] = Field(default_factory=dict)
     pick: dict[str, Any] = Field(default_factory=dict, description=PICK_DESCRIPTION)

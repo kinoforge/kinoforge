@@ -18,6 +18,7 @@ from kinoforge.inference.charges import InferenceCharges
 from kinoforge.observ import KinoLogger, bind, build_logger, logged, reset
 from kinoforge.schemas import StoryOperation, StoryOperationRequest, StoryWriteRequest
 from kinoforge.segments.story.agent import Screenwriter, StoryBrief
+from kinoforge.segments.story.explainer.boards import BoardWriter
 from kinoforge.segments.story.operations import StoryOperations
 from kinoforge.segments.story.ports import StoryPorts
 from kinoforge.segments.story.run_agent import RunAgent
@@ -158,6 +159,14 @@ class StoryRuntime:
                     dict(payload.get("record") or {}),
                     route,
                     int(budgets.get("rewrite") or 0),
+                )
+            case StoryOperation.DRAW_BOARDS:
+                targets = payload.get("targets")
+                return BoardWriter(operations.ports, dict(payload.get("kit") or {})).draw(
+                    dict(payload.get("record") or {}),
+                    [int(i) for i in targets] if isinstance(targets, list) else None,
+                    route,
+                    int(budgets.get("board") or 0),
                 )
             case StoryOperation.SUGGEST_FIELD:
                 return operations.suggest_field(
