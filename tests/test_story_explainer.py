@@ -187,3 +187,32 @@ def test_boards_are_drawn_without_a_stage_when_the_caller_has_no_stage_prompt():
     result = BoardWriter(fake.ports(), STAGED).draw(RECORD)
     assert result["ok"] is True and result["stage"] is None
     assert all("stage" not in json.loads(user) for _, user in fake.prompts)
+
+
+PARTED = {
+    "board": "PIECES: title",
+    "surfaces": [
+        {"key": "diagram", "part": "nodes", "text": "DIAGRAM: show"},
+        {"key": "road", "part": "road", "text": "ROAD: drive"},
+        {"key": "map", "part": "places", "text": "MAP: pin"},
+    ],
+    "lists": [{"name": "ICONS", "pick": "icons", "keys": ["car", "bee", "map"]}],
+}
+
+
+def test_boards_read_only_the_surfaces_and_icons_their_stage_draws():
+    stage = {"nodes": [], "road": {"side": "left"}, "surfaces": ["map"], "icons": ["car", "nope"]}
+    fake = _Writer({"stage": [stage], 1: [GOOD], 3: [GOOD]})
+    BoardWriter(fake.ports(), {**STAGED, "catalog": PARTED}).draw(RECORD)
+    boards = [(system, json.loads(user)) for system, user in fake.prompts if system.startswith("<explainer_board>")]
+    assert all(
+        system == "<explainer_board>PIECES: title\nROAD: drive\nMAP: pin\nICONS: car" for system, _ in boards
+    )
+    assert all(brief["stage"] == {"road": {"side": "left"}} for _, brief in boards)
+
+
+def test_a_stage_that_names_no_surfaces_keeps_the_whole_catalog():
+    fake = _Writer({"stage": [STAGE], 1: [GOOD], 3: [GOOD]})
+    BoardWriter(fake.ports(), {**STAGED, "catalog": PARTED}).draw(RECORD)
+    systems = {system for system, _ in fake.prompts if system.startswith("<explainer_board>")}
+    assert systems == {"<explainer_board>PIECES: title\nDIAGRAM: show\nROAD: drive\nMAP: pin\nICONS: car, bee, map"}

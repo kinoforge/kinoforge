@@ -2,7 +2,8 @@
 draws. One board per scene, written side by side from its narration against the caller's kit
 (the catalog a writer reads and the JSON schema a board must meet), checked, and sent back to
 the writer once with what was wrong. The video's stage (stage.py) is written first, so every
-board names the same diagram nodes, code files and road side."""
+board names the same diagram nodes, code files and road side, and reads only the parts of the
+catalog the stage says this video draws."""
 
 import json
 from collections.abc import Mapping
@@ -27,13 +28,55 @@ class Drawn:
     error: str = ""
 
 
+class KitCatalog:
+    """The kit's catalog cut to one video. A catalog in parts keeps its board text, the surfaces
+    the stage names or has the part of, and each list narrowed to the stage's picks; a stage
+    that names no surfaces or picks keeps them all. A catalog given as one text is used whole."""
+
+    SURFACES = "surfaces"
+
+    @staticmethod
+    def text(catalog: object, stage: dict | None) -> str:
+        if not isinstance(catalog, Mapping):
+            return str(catalog or "")
+        stage = stage or {}
+        named = stage.get(KitCatalog.SURFACES)
+        surfaces = [
+            str(part.get("text") or "")
+            for part in catalog.get("surfaces") or []
+            if isinstance(part, Mapping)
+            and (not isinstance(named, list) or part.get("key") in named
+                 or stage.get(str(part.get("part"))))
+        ]
+        lists = []
+        for item in KitCatalog._lists(catalog):
+            keys = [str(key) for key in item.get("keys") or []]
+            picked = set(stage.get(str(item.get("pick"))) or [])
+            kept = [key for key in keys if key in picked] or keys
+            lists.append(f"{item.get('name')}: {', '.join(kept)}")
+        return "\n".join([str(catalog.get("board") or ""), *surfaces, *lists])
+
+    @staticmethod
+    def shared(catalog: object, stage: dict | None) -> dict:
+        """The stage parts a board points at: the ones it has, less the picks that cut the
+        catalog."""
+        picks = {KitCatalog.SURFACES, *(str(i.get("pick")) for i in KitCatalog._lists(catalog))}
+        return {name: part for name, part in (stage or {}).items() if part and name not in picks}
+
+    @staticmethod
+    def _lists(catalog: object) -> list[Mapping]:
+        if not isinstance(catalog, Mapping):
+            return []
+        return [item for item in catalog.get("lists") or [] if isinstance(item, Mapping)]
+
+
 class BoardWriter:
     WORKERS = 6
     TEMPERATURE = 0.6
 
     def __init__(self, ports: StoryPorts, kit: Mapping) -> None:
         self.ports = ports
-        self.catalog = str(kit.get("catalog") or "")
+        self.catalog = kit.get("catalog") or ""
         self.check = BoardCheck(kit.get("schema") or {})
         self.stages = StageWriter(ports, kit)
 
@@ -56,12 +99,13 @@ class BoardWriter:
         language = str((rec.get("input") or {}).get("language") or "")
         system = self.ports.prompt(
             PROMPT_KEY,
-            catalog=self.catalog,
+            catalog=KitCatalog.text(self.catalog, stage),
             language_rule=self.ports.language_rule("board text", language_name(language)),
         )
+        shared = KitCatalog.shared(self.catalog, stage)
         with ThreadPoolExecutor(max_workers=min(self.WORKERS, len(wanted))) as pool:
             jobs = [
-                pool.submit(with_context(self._scene), system, story, stage, i, route, max_tokens)
+                pool.submit(with_context(self._scene), system, story, shared, i, route, max_tokens)
                 for i in wanted
             ]
             drawn = [job.result() for job in jobs]
@@ -75,12 +119,12 @@ class BoardWriter:
         self,
         system: str,
         story: dict,
-        stage: dict | None,
+        shared: dict,
         index: int,
         route: ModelRef | None,
         max_tokens: int,
     ) -> Drawn:
-        brief = self._brief(story, index, stage)
+        brief = self._brief(story, index, shared)
         board: object = None
         problems: list[str] = []
         for attempt in range(2):
@@ -103,12 +147,7 @@ class BoardWriter:
         return Drawn(index, None, f"the board was refused: {problems[0]}")
 
     @staticmethod
-    def _shared(stage: dict | None) -> dict:
-        """The parts of the stage a board may point at: the ones it has."""
-        return {name: part for name, part in (stage or {}).items() if part}
-
-    @staticmethod
-    def _brief(story: dict, index: int, stage: dict | None = None) -> str:
+    def _brief(story: dict, index: int, shared: dict) -> str:
         scenes = story.get("scenes") or []
 
         def narration(i: int) -> str:
@@ -122,7 +161,7 @@ class BoardWriter:
                 "narration": narration(index),
                 "before": narration(index - 1),
                 "after": narration(index + 1),
-                **({"stage": shared} if (shared := BoardWriter._shared(stage)) else {}),
+                **({"stage": shared} if shared else {}),
             },
             ensure_ascii=False,
         )
