@@ -16,6 +16,10 @@ class InfrelayError(RuntimeError):
     pass
 
 
+class InfrelayLate(InfrelayError):
+    """A late answer still not ready at the call's deadline."""
+
+
 class InfrelayLimited(InfrelayError):
     """Infrelay took no more of this tenant's calls for now (429): send it again once earlier
     ones end."""
@@ -31,6 +35,8 @@ class InfrelayClient:
     _http = httpx.Client(limits=httpx.Limits(max_connections=64, max_keepalive_connections=16))
     # Seconds between reads of a late answer when Infrelay does not say (Retry-After).
     READ_EVERY = 2.0
+    # Seconds a clip may take: a cold GPU machine boots for about half an hour first.
+    VIDEO_SECONDS = 2 * 3600
     # The only links a late answer is read at, so the token goes nowhere else.
     LATE_LINK = "/v1/requests/"
 
@@ -63,19 +69,23 @@ class InfrelayClient:
                   payload=shape(payload, max_depth=2))
         log.trace(f"infrelay {task} input", **shape(payload, max_depth=1))
         started = time.monotonic()
-        response = self._admitted(task, ref, url, headers, payload, started + timeout)
-        elapsed_ms = int((time.monotonic() - started) * 1000)
-        late = response.status_code == 504 and "retry_url" in response.text
-        if late:
-            log.debug(f"infrelay {task} {ref} answers late: reading its link", ms=elapsed_ms)
-            result = self._late(response.json(), started + timeout)
-        elif response.status_code >= 400:
+        try:
+            response = self._admitted(task, ref, url, headers, payload, started + timeout)
+            elapsed_ms = int((time.monotonic() - started) * 1000)
+            late = response.status_code == 504 and "retry_url" in response.text
+            if late:
+                log.debug(f"infrelay {task} {ref} answers late: reading its link", ms=elapsed_ms)
+                result = self._late(response.json(), started + timeout)
+        except InfrelayLate as exc:
+            minutes = round(timeout / 60)
+            raise InfrelayError(f"{task} timed out: no answer after {minutes} minutes") from exc
+        if not late and response.status_code >= 400:
             log.warning(f"infrelay {task} {ref} failed ({response.status_code}) in {elapsed_ms}ms",
                         status=response.status_code, body=response.text[:300])
             raise InfrelayError(
                 f"infrelay {task} {ref} failed ({response.status_code}): {response.text[:300]}"
             )
-        else:
+        if not late:
             result = response.json()
         self._answered(task, ref, result)
         log.debug(f"infrelay <- {task} {ref} {response.status_code} in {elapsed_ms}ms",
@@ -97,6 +107,8 @@ class InfrelayClient:
                     url, headers=headers, json=self._body(ref, payload),
                     timeout=max(1.0, deadline - time.monotonic()),
                 )
+            except httpx.TimeoutException as exc:
+                raise InfrelayLate(url) from exc
             except httpx.HTTPError as exc:
                 active().warning(f"infrelay {task} {ref} unreachable: {exc}")
                 raise InfrelayError(f"infrelay {task} {ref} unreachable: {exc}") from exc
@@ -148,7 +160,7 @@ class InfrelayClient:
                 )
             wait = float(response.headers.get("Retry-After") or self.READ_EVERY)
             if time.monotonic() + wait > deadline:
-                raise InfrelayError(f"infrelay {link} did not answer in time")
+                raise InfrelayLate(link)
             time.sleep(wait)
 
     def text(
@@ -193,7 +205,7 @@ class InfrelayClient:
         `speaker` when one is named; `music` toggles a non-diegetic score. Providers without
         their own audio ignore all three."""
         payload = self._video_payload(prompt, spec)
-        return self._bytes(self._infer(task, ref, payload, timeout=1800))
+        return self._bytes(self._infer(task, ref, payload, timeout=self.VIDEO_SECONDS))
 
     def submit_video(
         self, task: AITask, ref: ModelRef, prompt: str, spec: VideoSpec, callback_url: str
