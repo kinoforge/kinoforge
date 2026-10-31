@@ -1,11 +1,11 @@
 # Kinoforge
 
-[![Website](https://img.shields.io/badge/website-videogpt.dev-7c3aed)](https://videogpt.dev)
+[![Website](https://img.shields.io/badge/website-kinoforge.dev-7c3aed)](https://kinoforge.dev)
 [![License](https://img.shields.io/badge/license-PolyForm%20NC%201.0.0-blue)](LICENSE)
 [![Last commit](https://img.shields.io/github/last-commit/videogpt-dev/kinoforge)](https://github.com/videogpt-dev/kinoforge/commits/main)
 ![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)
 
-The generation engine behind VideoGPT. It runs the clip, story, and series pipelines and is
+The open generation engine behind Kinoforge (kinoforge.dev). It runs the clip, story, and series pipelines and is
 driven over REST.
 
 ## What it does
@@ -76,4 +76,4 @@ Moment finding is config-only:
 ## License
 
 Source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE): free for personal
-and other noncommercial use. For commercial use, see [videogpt.dev](https://videogpt.dev).
+and other noncommercial use. For commercial use, see [kinoforge.dev](https://kinoforge.dev).

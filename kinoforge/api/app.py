@@ -15,7 +15,7 @@ from kinoforge.service.executions import ExecutionConflict
 
 app = FastAPI(
     title="Kinoforge API",
-    summary="VideoGPT generation engine",
+    summary="Kinoforge generation engine",
     description=(
         "Source-available clips, story, and series generation engine. API exposes clips"
         " execution, Story writing and edits, plus supporting media operations. "
