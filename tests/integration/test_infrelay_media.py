@@ -84,6 +84,21 @@ def test_a_call_the_gateway_is_full_for_is_sent_again_once_it_has_room(monkeypat
     assert (text, slept) == ("a story", [1.0])
 
 
+def test_a_moved_gateway_is_named_as_such_not_as_a_model_failure(monkeypatch):
+    from kinoforge.contract import AITask, ModelRef
+    from kinoforge.inference.infrelay import InfrelayError
+
+    moved = httpx.Response(308, headers={"location": "https://infrelay.new/v1/inference/x"})
+    monkeypatch.setattr(
+        InfrelayClient, "_http", httpx.Client(transport=httpx.MockTransport(lambda _r: moved))
+    )
+
+    with pytest.raises(InfrelayError, match="308 without JSON .*check INFRELAY_URL"):
+        InfrelayClient("http://infrelay.old")._infer(
+            AITask.IMAGE, ModelRef("agnes", "m"), {"prompt": "x"}, timeout=5
+        )
+
+
 def _spec():
     from kinoforge.contract import VideoSpec
 

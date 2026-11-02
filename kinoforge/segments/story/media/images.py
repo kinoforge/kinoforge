@@ -66,7 +66,7 @@ class ImagePainter:
         low = prompt.lower()
         traits = [
             f"{c['name']} is {PromptText.leading_sentences(str(c['description']), 2)}"
-            for c in PromptText.mentioned_characters(characters[:6], prompt, story_texts)
+            for c in PromptText.mentioned_characters(characters, prompt, story_texts)
             if (c.get("name") or "").strip()
             and (c.get("description") or "").strip()
             and c["description"].lower() not in low

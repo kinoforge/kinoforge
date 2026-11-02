@@ -186,3 +186,9 @@ def test_a_gateway_failure_is_a_502_with_its_reason(monkeypatch):
     response = TestClient(app).post("/v1/segments/story/media/voice", json=body)
     assert response.status_code == 502
     assert "busy" in response.json()["detail"]
+
+
+def test_every_named_cast_member_keeps_their_look_however_large_the_cast():
+    cast = [{"name": f"Member{i}", "description": f"look {i}"} for i in range(10)]
+    prompt = _painter().with_character_traits("Member9 lights the fire.", cast)
+    assert "Member9 is look 9" in prompt and "Member0" not in prompt

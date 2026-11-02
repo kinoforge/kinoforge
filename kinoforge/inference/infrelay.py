@@ -75,7 +75,7 @@ class InfrelayClient:
             late = response.status_code == 504 and "retry_url" in response.text
             if late:
                 log.debug(f"infrelay {task} {ref} answers late: reading its link", ms=elapsed_ms)
-                result = self._late(response.json(), started + timeout)
+                result = self._late(self._json(response, task.value), started + timeout)
         except InfrelayLate as exc:
             minutes = round(timeout / 60)
             raise InfrelayError(f"{task} timed out: no answer after {minutes} minutes") from exc
@@ -86,7 +86,7 @@ class InfrelayClient:
                 f"infrelay {task} {ref} failed ({response.status_code}): {response.text[:300]}"
             )
         if not late:
-            result = response.json()
+            result = self._json(response, task.value)
         self._answered(task, ref, result)
         log.debug(f"infrelay <- {task} {ref} {response.status_code} in {elapsed_ms}ms",
                   status=response.status_code, ms=elapsed_ms, served=self.served,
@@ -140,6 +140,22 @@ class InfrelayClient:
         if isinstance(rewrite, dict):
             self.rewrites.append(dict(rewrite))
 
+    @staticmethod
+    def _json(response: httpx.Response, what: str) -> Dict[str, Any]:
+        """The answer's JSON object; a redirect or any other body is an error naming its status,
+        so a stale INFRELAY_URL is not mistaken for a model failure."""
+        try:
+            body = response.json()
+        except ValueError:
+            body = None
+        if isinstance(body, dict) and not 300 <= response.status_code < 400:
+            return body
+        moved = response.headers.get("location", "")
+        raise InfrelayError(
+            f"infrelay {what} answered {response.status_code} without JSON"
+            + (f" (moved to {moved}: check INFRELAY_URL)" if moved else "")
+        )
+
     def _late(self, late: Dict[str, Any], deadline: float) -> Dict[str, Any]:
         """A direct call's answer read at the link Infrelay's 504 named, until it ends or the
         deadline passes."""
@@ -153,7 +169,7 @@ class InfrelayClient:
             except httpx.HTTPError as exc:
                 raise InfrelayError(f"infrelay unreachable reading {link}: {exc}") from exc
             if response.status_code == 200:
-                return response.json()
+                return self._json(response, link)
             if response.status_code not in (202, 429):
                 raise InfrelayError(
                     f"infrelay {link} failed ({response.status_code}): {response.text[:300]}"
@@ -251,7 +267,7 @@ class InfrelayClient:
             raise failed(
                 f"infrelay job {method} failed ({response.status_code}): {response.text[:300]}"
             )
-        return response.json()
+        return self._json(response, f"job {method}")
 
     def _video_payload(self, prompt: str, spec: VideoSpec) -> Dict[str, Any]:
         payload: Dict[str, Any] = {
