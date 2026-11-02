@@ -192,3 +192,8 @@ def test_every_named_cast_member_keeps_their_look_however_large_the_cast():
     cast = [{"name": f"Member{i}", "description": f"look {i}"} for i in range(10)]
     prompt = _painter().with_character_traits("Member9 lights the fire.", cast)
     assert "Member9 is look 9" in prompt and "Member0" not in prompt
+
+
+def test_a_referenced_shot_keeps_who_they_are_but_dresses_them_as_it_describes():
+    prompt = _painter().with_reference("Ethan in a fur cloak at the wall")
+    assert "faces, age, hair, build" in prompt and "dress them as this shot describes" in prompt

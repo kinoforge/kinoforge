@@ -14,8 +14,9 @@ from kinoforge.segments.story.media.prompt_text import LabeledPrompt, PromptText
 GenerateImage = Callable[[ModelRef, str, ImageSpec], bytes]
 
 REFERENCE_ANCHOR = (
-    "Match the reference image for how the characters and products look (faces, hair, "
-    "clothing, colors, logos), but compose this new shot instead of copying the reference"
+    "Match the reference image for who the characters are (faces, age, hair, build) and how "
+    "the products look (shape, colors, logos); dress them as this shot describes, else as in "
+    "the reference, and compose this new shot instead of copying the reference"
 )
 
 
