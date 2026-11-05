@@ -22,7 +22,6 @@ from kinoforge.segments.flow.nodes.base import (
     style_field,
 )
 from kinoforge.segments.flow.ports import Port, PortType
-from kinoforge.segments.story.languages import NarrationLanguage
 from kinoforge.segments.story.media.prompt_text import LabeledPrompt
 from kinoforge.service.runtimes.presets import BundleImagePresets
 
@@ -210,7 +209,7 @@ class VoiceConfig(NodeConfig):
     # The model is the voice: a voice model's list is its voices.
     retired = ("voice",)
 
-    language: NarrationLanguage = language_field()
+    language: str = language_field()
     model: ModelChoice = model_field(NodeMedia.TTS)
 
 
@@ -226,7 +225,7 @@ class VoiceGen(NodeSpec):
 
     def run(self, ctx: NodeContext, inputs: Dict[str, Any], config: Any) -> Dict[str, Any]:
         data = ctx.infrelay.speech(
-            AITask.AUDIO, config.model.ref(), inputs["text"], language=config.language.value,
+            AITask.AUDIO, config.model.ref(), inputs["text"], language=config.language,
         )
         return {"audio": ctx.write("audio", data, MediaKinds.audio_suffix(data))}
 

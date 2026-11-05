@@ -5,7 +5,7 @@ from enum import Enum
 from kinoforge.contract import AITask, ModelRef
 from kinoforge.segments.story.agent import ModelFailure, clean_text, strip_dashes
 from kinoforge.segments.story.formats import normalize
-from kinoforge.segments.story.languages import LANGUAGES, language_name
+from kinoforge.segments.story.languages import known_language, language_name
 from kinoforge.segments.story.ports import StoryPorts
 
 
@@ -77,7 +77,9 @@ class StoryOperations:
             scene_total=len(scenes),
             cur_prompt=current.get("prompt", ""),
             cur_narration=current.get("narration", ""),
-            language_rule=self.ports.language_rule("narration", language_name(language)),
+            language_rule=self.ports.language_rule(
+                "narration", language_name(language, self.ports.languages)
+            ),
         )
         if instructions.strip():
             prompt = f"{prompt}\n\nExtra direction for this rewrite:\n{instructions.strip()}"
@@ -132,8 +134,8 @@ class StoryOperations:
         route: ModelRef | None = None,
         max_tokens: int = 0,
     ) -> dict:
-        entry = LANGUAGES.get(language.strip())
-        if not entry:
+        name = known_language(language, self.ports.languages)
+        if not name:
             return {"ok": False, "error": "unsupported language"}
         scenes = story.get("scenes") or []
         lines = "\n".join(
@@ -141,7 +143,7 @@ class StoryOperations:
         )
         prompt = self.ports.prompt(
             "story_translate",
-            language=entry[0],
+            language=name,
             logline=story.get("logline", ""),
             lines=lines,
             scene_count=len(scenes),

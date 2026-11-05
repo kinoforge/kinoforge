@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import Protocol
 
 from kinoforge.contract import AITask, Meter, ModelRef, no_meter
@@ -50,3 +51,5 @@ class StoryPorts:
     language_rule: LanguageRule
     story_budget: StoryBudget
     meter: Meter = no_meter
+    # The caller's languages, code -> what the writer is told; empty uses the engine's own.
+    languages: Mapping[str, str] = field(default_factory=dict)

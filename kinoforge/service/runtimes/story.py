@@ -64,6 +64,9 @@ class StoryRuntime:
             meter=meter,
             contract_key=CONTRACT_KEY,
             language_key=LANGUAGE_KEY,
+            languages={
+                str(k): str(v) for k, v in (request.config.get("languages") or {}).items()
+            },
         ).to_ports()
         logger = build_logger(
             job_id=request.project_id, segment="story",

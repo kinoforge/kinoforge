@@ -38,7 +38,9 @@ class StageWriter:
             system = self.ports.prompt(
                 PROMPT_KEY,
                 catalog=self.catalog,
-                language_rule=self.ports.language_rule("node labels", language_name(language)),
+                language_rule=self.ports.language_rule(
+                    "node labels", language_name(language, self.ports.languages)
+                ),
             )
         except DefinitionError:
             return None

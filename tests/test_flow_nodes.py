@@ -222,8 +222,8 @@ def test_settings_a_node_no_longer_has_still_load_and_languages_are_picked():
     from kinoforge.segments.flow.nodes.generate import VideoGenConfig, VoiceConfig
 
     assert VideoGenConfig.model_validate({"resolution": 720, "seconds": 4}).seconds == 4
-    assert VoiceConfig.model_validate({"voice": "x", "language": "it"}).language.value == "it"
+    assert VoiceConfig.model_validate({"voice": "x", "language": "it"}).language == "it"
     with pytest.raises(ValueError):
-        VoiceConfig.model_validate({"language": "klingon"})
+        VoiceConfig.model_validate({"language": "Not a code"})
     labels = VoiceConfig.model_json_schema()["properties"]["language"]["labels"]
     assert labels[""] == "Auto" and labels["hinglish"] == "Hinglish"

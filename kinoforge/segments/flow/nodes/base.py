@@ -72,11 +72,14 @@ class ModelChoice(BaseModel):
 
 
 def language_field() -> Any:
-    from kinoforge.segments.story.languages import LANGUAGES, NarrationLanguage
+    """A language code; the labels are the engine's own list, which a caller with its own
+    languages replaces."""
+    from kinoforge.segments.story.languages import LANGUAGES
 
     labels = {"": "Auto", **{k: name.split(",", 1)[0] for k, (name, _) in LANGUAGES.items()}}
     return Field(
-        default=NarrationLanguage.AUTO, title="Language", json_schema_extra={"labels": labels}
+        default="", max_length=24, pattern=r"^[a-z-]*$", title="Language",
+        json_schema_extra={"labels": labels},
     )
 
 

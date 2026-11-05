@@ -1,10 +1,10 @@
-"""Narration languages and caption-alignment codes.
+"""Narration languages and caption-alignment codes, for running the engine on its own.
 
-Shared by the whole story engine: generation writes narration in one of these,
-the translation pass reshapes it into another, and caption alignment needs the
-Whisper ISO code. Kept in one place so the table has a single home.
+A caller with its own language list sends each language's phrasing (config.languages),
+which wins over this table.
 """
 
+from collections.abc import Mapping
 from enum import StrEnum
 
 
@@ -53,8 +53,18 @@ def whisper_code(language: str) -> str | None:
     return entry[1] if entry else None
 
 
-def language_name(language: str) -> str:
-    """The phrasing a language rule names: the language's own name ("English"), or the
-    fallback phrase when none is set."""
-    entry = LANGUAGES.get((language or "").strip())
-    return entry[0] if entry else "the same language as the title"
+AUTO_PHRASE = "the same language as the title"
+
+
+def known_language(language: str, phrases: Mapping[str, str] | None = None) -> str | None:
+    """The phrasing the writer is told for a language: the caller's, else this table's."""
+    code = (language or "").strip()
+    if phrases and phrases.get(code):
+        return str(phrases[code])
+    entry = LANGUAGES.get(code)
+    return entry[0] if entry else None
+
+
+def language_name(language: str, phrases: Mapping[str, str] | None = None) -> str:
+    """The phrasing a language rule names, or the fallback phrase when none is set."""
+    return known_language(language, phrases) or AUTO_PHRASE

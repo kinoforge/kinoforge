@@ -93,7 +93,8 @@ class Screenwriter:
             "output_format": prompt_label(brief.aspect_ratio),
             "language": (brief.language or "").strip(),
             "language_rule": self.ports.language_rule(
-                "logline and all narration", language_name(brief.language)
+                "logline and all narration",
+                language_name(brief.language, self.ports.languages),
             ),
             "genre": (brief.genre or "").strip(),
             "premise": (brief.premise or "").strip(),

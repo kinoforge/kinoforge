@@ -28,6 +28,7 @@ class InfrelayTextPorts:
         meter: Meter = no_meter,
         contract_key: str | None = None,
         language_key: str | None = None,
+        languages: dict[str, str] | None = None,
     ) -> None:
         self._infrelay = infrelay
         self._renderer = renderer
@@ -36,13 +37,14 @@ class InfrelayTextPorts:
         self._meter = meter
         self._contract_key = contract_key
         self._language_key = language_key
+        self._languages = dict(languages or {})
 
     def to_ports(self) -> StoryPorts:
         return StoryPorts(
             complete=self.complete, complete_json=self.complete_json,
             parse_json=self.parse_json, prompt=self.prompt, contract=self.contract,
             language_rule=self.language_rule, story_budget=self.story_budget,
-            meter=self._meter,
+            meter=self._meter, languages=self._languages,
         )
 
     def complete(

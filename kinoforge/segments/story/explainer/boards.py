@@ -100,7 +100,9 @@ class BoardWriter:
         system = self.ports.prompt(
             PROMPT_KEY,
             catalog=KitCatalog.text(self.catalog, stage),
-            language_rule=self.ports.language_rule("board text", language_name(language)),
+            language_rule=self.ports.language_rule(
+                "board text", language_name(language, self.ports.languages)
+            ),
         )
         shared = KitCatalog.shared(self.catalog, stage)
         with ThreadPoolExecutor(max_workers=min(self.WORKERS, len(wanted))) as pool:
