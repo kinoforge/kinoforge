@@ -157,6 +157,9 @@ def test_a_piece_that_fits_no_kind_is_told_what_is_wrong_in_its_own_kind():
     )
     assert problems == [f"board.piece.label: {'x' * 19!r} is too long"]
 
+    problems = BoardCheck(schema).problems({"piece": {"type": "diagram", "car": "you"}})
+    assert problems == ["board.piece: type 'diagram' is not a piece kind; use one of: drive, title"]
+
 
 def test_a_staged_kit_writes_the_stage_once_and_hands_it_to_every_board():
     fake = _Writer({"stage": [STAGE], 1: [GOOD], 3: [GOOD]})

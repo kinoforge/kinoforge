@@ -21,7 +21,7 @@ class BoardCheck:
     @staticmethod
     def _inside(error: ValidationError) -> list[ValidationError]:
         """A piece that fits none of the kinds says only that; the errors of the kind its `type`
-        names are the ones its writer can fix."""
+        names are the ones its writer can fix, and a `type` naming no kind gets the kinds listed."""
         if error.validator not in ("oneOf", "anyOf") or not error.context:
             return [error]
         kinds: dict[object, list[ValidationError]] = {}
@@ -32,7 +32,15 @@ class BoardCheck:
             for subs in kinds.values()
             if not any(sub.validator == "const" and list(sub.path) == ["type"] for sub in subs)
         ]
-        return named[0] if len(named) == 1 else [error]
+        if len(named) == 1:
+            return named[0]
+        if not named and isinstance(error.instance, dict):
+            kinds_named = sorted({str(sub.validator_value) for sub in error.context if sub.validator == "const"})
+            error.message = (
+                f"type {error.instance.get('type')!r} is not a piece kind; use one of: "
+                + ", ".join(kinds_named)
+            )
+        return [error]
 
     def repair(self, brief: str, answer: object, problems: list[str]) -> str:
         listed = "\n".join(f"- {problem}" for problem in problems)
