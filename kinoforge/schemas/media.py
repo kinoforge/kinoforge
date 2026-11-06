@@ -37,6 +37,11 @@ class ImageOptionsRequest(BaseModel):
         default=False,
         description="Attach the negative preset to the provider request (scene mode only).",
     )
+    negative_extra: str = Field(
+        default="",
+        description="What this caller's pictures must not show (e.g. a series' world rules), "
+        "added to the negative preset when it is attached.",
+    )
     enhance: bool = Field(
         default=False, description="Rewrite the prompt through a text model before generation."
     )

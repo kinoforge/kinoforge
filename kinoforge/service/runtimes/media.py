@@ -143,7 +143,10 @@ class MediaRuntime:
                 referenced=spec.reference is not None,
             )
             if opts.apply_negative:
-                spec = replace(spec, negative=painter.negative())
+                negative = ", ".join(
+                    part for part in (painter.negative(), opts.negative_extra.strip()) if part
+                )
+                spec = replace(spec, negative=negative)
         data = painter.generate_for(prompt, ModelRef.from_mapping(request.pick), spec)
         logger.success("image render done", bytes=len(data), observed_limit=ceiling.learned)
         return {
