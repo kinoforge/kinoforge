@@ -21,7 +21,7 @@ class StoryContextRequest(BaseModel):
 
     title: str = Field(description="Story title the screenwriter writes from.")
     description: str = ""
-    scene_count: int = Field(default=8, ge=1, le=64)
+    scene_count: int = Field(default=8, ge=1)
     aspect_ratio: str = "9:16"
     language: str = ""
     genre: str = ""
