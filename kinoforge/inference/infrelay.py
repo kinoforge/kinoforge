@@ -292,10 +292,12 @@ class InfrelayClient:
         return self._bytes(self._infer(task, ref, payload, timeout=1800))
 
     def speech(self, task: AITask, ref: ModelRef, text: str, *, voice: str = "",
-               language: str = "") -> bytes:
+               language: str = "", rate: str = "") -> bytes:
         payload: Dict[str, Any] = {"text": text}
         if voice:
             payload["voice"] = voice
+        if rate:
+            payload["rate"] = rate
         if language:
             payload["language"] = language
         return self._bytes(self._infer(task, ref, payload, timeout=600))

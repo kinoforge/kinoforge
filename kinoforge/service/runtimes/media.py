@@ -254,6 +254,7 @@ class MediaRuntime:
         data = infrelay.speech(
             AITask.STORY_VOICE, ModelRef.from_mapping(request.pick), request.text,
             voice=request.options.voice, language=request.options.language,
+            rate=request.options.rate,
         )
         logger.success("voice render done", bytes=len(data))
         return {

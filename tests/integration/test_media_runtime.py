@@ -303,22 +303,22 @@ def test_render_music_builds_mood_prompt_and_sizes_bed(monkeypatch):
 def test_render_voice_forwards_resolved_route(monkeypatch):
     seen = {}
 
-    def speech(self, task, ref, text, *, voice, language):
-        seen.update(ref=str(ref), text=text, voice=voice, language=language)
+    def speech(self, task, ref, text, *, voice, language, rate):
+        seen.update(ref=str(ref), text=text, voice=voice, language=language, rate=rate)
         return MP3
 
     fake(monkeypatch, "speech", speech)
     request = VoiceRenderRequest(
         job_id="voice-1", project_id="proj-1", owner="tenant-1", text="The light still turns.",
         pick={"provider": "edge", "model": "en-US-AriaNeural"},
-        options={"voice": "en-US-AriaNeural", "language": "en"},
+        options={"voice": "en-US-AriaNeural", "language": "en", "rate": "-8%"},
     )
     out = MediaRuntime(SETTINGS).render_voice(request)
 
     assert base64.b64decode(out["audio_b64"]) == MP3
     assert seen == {
         "ref": "edge/en-US-AriaNeural", "text": "The light still turns.",
-        "voice": "en-US-AriaNeural", "language": "en",
+        "voice": "en-US-AriaNeural", "language": "en", "rate": "-8%",
     }
 
 

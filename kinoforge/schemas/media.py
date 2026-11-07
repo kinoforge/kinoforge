@@ -301,6 +301,8 @@ class VoiceOptionsRequest(BaseModel):
 
     voice: str = ""
     language: str = ""
+    rate: str = Field(default="", pattern=r"^([+-][0-9]{1,2}%)?$",
+                      description="Speaking rate for engines that take one, like -8%.")
 
 
 class VoiceRenderRequest(OperationRequest):
