@@ -23,8 +23,9 @@ class PromptText:
         characters: list[dict[str, Any]], text: str, story_texts: list[str] | None = None
     ) -> list[dict[str, Any]]:
         """Return cast explicitly referenced by name or role in scene direction, matching
-        whole words only so "Max" is not found in "maximum". Given the story's other scene
-        texts, a name used inside a recurring phrase ("learner car") does not count."""
+        whole words only so "Max" is not found in "maximum". One word of a proper name counts
+        ("Daniel" of "Daniel Reed"), never of a described one ("cave" of "Cave lion"). Given the story's other scene texts, a name used inside a recurring phrase
+        ("learner car") does not count."""
         mentioned = []
         for character in characters:
             name = str(character.get("name") or "").strip()
@@ -33,8 +34,12 @@ class PromptText:
             sections = [
                 part.strip() for part in re.split(r"\s+(?:—|–|-)\s+", name) if part.strip()
             ]
-            aliases = {name, sections[0], *sections[1:], *sections[0].split()}
-            if any(PromptText._names(alias, text, story_texts or []) for alias in aliases):
+            aliases = {name, *sections}
+            words = [w for w in sections[0].split() if w.casefold() not in NAME_FILLERS]
+            proper = len(words) > 1 and all(w[:1].isupper() for w in words)
+            if any(PromptText._names(alias, text, story_texts or []) for alias in aliases) or (
+                proper and any(PromptText._names(w, text, story_texts or []) for w in words)
+            ):
                 mentioned.append(character)
         return mentioned
 

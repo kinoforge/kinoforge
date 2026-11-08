@@ -62,6 +62,13 @@ def test_mentions_by_role_after_dash():
     assert mentioned_characters(chars, "the villain arrives") == [{"name": "Bob — the villain"}]
 
 
+def test_one_word_counts_for_a_proper_name_but_not_a_described_one():
+    chars = [{"name": "Daniel Reed"}, {"name": "Cave lion"}]
+    assert mentioned_characters(chars, "Daniel kneels") == [{"name": "Daniel Reed"}]
+    assert mentioned_characters(chars, "a dark cave, a lion's roar") == []
+    assert mentioned_characters(chars, "the cave lion stalks") == [{"name": "Cave lion"}]
+
+
 def test_short_aliases_below_three_chars_ignored():
     assert mentioned_characters([{"name": "Jo"}], "jo waves") == []
 
