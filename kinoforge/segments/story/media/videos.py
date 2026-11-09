@@ -57,6 +57,9 @@ class ClipMaker:
             (rec.get("input") or {}).get("image_preset") or ""
         ).strip()
 
+    # A clip is one shot: a model left free cuts to a new angle midway, breaking the join.
+    ONE_TAKE = "One continuous take from start to end."
+
     def video_prompt(
         self, scene: dict, shot: dict, story: dict, motion: str = "", max_chars: int = 0
     ) -> str:
@@ -67,10 +70,11 @@ class ClipMaker:
         scene_text = (scene.get("prompt") or "").strip()
         sound = str(shot.get("sound") or scene.get("sound") or "").strip()
         cast = self.cast_in(story, scene, shot)
+        camera = f"{(shot.get('camera') or '').strip()} {self.ONE_TAKE}".strip()
         parts = [
             ("", scene_text),
             ("Action", (shot.get("action") or "").strip()),
-            ("Camera", (shot.get("camera") or "").strip()),
+            ("Camera", camera),
             ("Sound", sound),
             ("Continuity", (shot.get("continuity") or "").strip()),
             ("Characters", cast),
@@ -83,7 +87,7 @@ class ClipMaker:
         compact_parts = [
             ("", scene_text),
             ("Action", (shot.get("action") or "").strip()),
-            ("Camera", (shot.get("camera") or "").strip()),
+            ("Camera", camera),
             ("Sound", sound),
             ("Continuity", (shot.get("continuity") or "").strip()),
             ("Characters", self.cast_in(story, scene, shot, compact=True)),
