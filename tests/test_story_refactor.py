@@ -107,12 +107,12 @@ def test_character_prompt_is_empty_without_described_cast():
     assert painter.character_prompt({"characters": [{"name": "A"}]}, {}) == ""
 
 
-def _clip_spec(scene: dict) -> VideoSpec:
+def _clip_spec(scene: dict, music: bool = False) -> VideoSpec:
     sent: list = []
     maker = ClipMaker(generate_video=lambda ref, prompt, spec: sent.append(spec) or b"v",
                       ceiling=PromptCeiling())
     maker.generate_clip(scene, {}, "", ModelRef("fal"),
-                        VideoSpec(seconds=5, resolution=720, aspect_ratio="9:16"))
+                        VideoSpec(seconds=5, resolution=720, aspect_ratio="9:16", music=music))
     return sent[0]
 
 
@@ -142,9 +142,24 @@ def test_a_clip_prompt_says_what_is_heard():
     assert "Sound: kitchen hum" in scene_only
 
 
-def test_a_silent_native_scene_makes_its_own_sound_but_never_its_own_score():
-    spec = _clip_spec({"prompt": "x", "audio_mode": "native", "narration": ""})
-    assert (spec.dialogue, spec.music) == ("", False)
+def test_a_silent_native_scene_scores_itself_only_when_the_film_has_no_music_bed():
+    scene = {"prompt": "x", "audio_mode": "native", "narration": ""}
+    assert (_clip_spec(scene).dialogue, _clip_spec(scene).music) == ("", False)
+    assert _clip_spec(scene, music=True).music is True
+
+
+def test_a_clip_describes_only_the_cast_its_scene_names():
+    maker = ClipMaker(generate_video=lambda *a: b"", ceiling=PromptCeiling())
+    story = {"characters": [
+        {"name": "Pip", "description": "a small orange fox"},
+        {"name": "Bramble", "description": "an old grey owl"},
+    ]}
+    empty = maker.video_prompt({"prompt": "a shooting star lands in the forest"}, {}, story)
+    pip = maker.video_prompt({"prompt": "Pip runs", "speaker": "Bramble"}, {}, story)
+    assert "Characters" not in empty
+    assert "Pip: a small orange fox" in pip and "Bramble: an old grey owl" in pip
+    alone = maker.video_prompt({"prompt": "Pip sleeps"}, {}, story)
+    assert "Bramble" not in alone
 
 
 def test_music_composer_passes_route_prompt_and_capped_seconds():

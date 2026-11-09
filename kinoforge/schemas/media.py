@@ -149,6 +149,10 @@ class VideoOptionsRequest(BaseModel):
         default="",
         description="Optional style to steer the prompt rewrite (ignored when enhance is off).",
     )
+    music: bool = Field(
+        default=False,
+        description="A clip that makes its own sound may add music too (the film has no music bed).",
+    )
 
 
 class VideoRenderRequest(LoggableRequest):

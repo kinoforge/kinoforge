@@ -23,22 +23,22 @@ class ClipMaker:
         self._generate_video = generate_video
         self._ceiling = ceiling
 
-    def cast_in(self, story: dict, scene_text: str = "", compact: bool = False) -> str:
-        """The film's cast, restated for a clip so a character the prompt does not describe
-        is not redrawn differently in every clip. The whole (small) cast is carried; the
-        shot's action still decides who is on screen."""
+    def cast_in(self, story: dict, scene: dict, shot: dict, compact: bool = False) -> str:
+        """The cast the scene names (in its words, its speaker or its shot), restated so they
+        are drawn the same in every clip. A scene that names no one gets no cast, so the model
+        adds no one."""
         characters = [
             character
             for character in (story.get("characters") or [])[:6]
             if (character.get("name") or "").strip()
             and (character.get("description") or "").strip()
         ]
-        if compact:
-            characters = PromptText.mentioned_characters(
-                characters,
-                scene_text,
-                [str(s.get("prompt") or "") for s in story.get("scenes") or []],
-            )
+        named = " ".join(
+            str(text or "") for text in (scene.get("prompt"), scene.get("speaker"), shot.get("action"))
+        )
+        characters = PromptText.mentioned_characters(
+            characters, named, [str(s.get("prompt") or "") for s in story.get("scenes") or []]
+        )
         return "; ".join(
             f"{c.get('name')}: {self._describe(c, compact)}"
             for c in characters
@@ -66,7 +66,7 @@ class ClipMaker:
         style = (story.get("style") or "").strip()
         scene_text = (scene.get("prompt") or "").strip()
         sound = str(shot.get("sound") or scene.get("sound") or "").strip()
-        cast = self.cast_in(story)
+        cast = self.cast_in(story, scene, shot)
         parts = [
             ("", scene_text),
             ("Action", (shot.get("action") or "").strip()),
@@ -86,7 +86,7 @@ class ClipMaker:
             ("Camera", (shot.get("camera") or "").strip()),
             ("Sound", sound),
             ("Continuity", (shot.get("continuity") or "").strip()),
-            ("Characters", self.cast_in(story, scene_text, compact=True)),
+            ("Characters", self.cast_in(story, scene, shot, compact=True)),
             ("Cinematography", PromptText.leading_sentences(motion, 2)),
             ("Style", PromptText.leading_sentences(style, 2)),
         ]
@@ -117,12 +117,12 @@ class ClipMaker:
     def clip_call(
         self, scene: dict, story: dict, motion: str, spec: VideoSpec, limit: int
     ) -> tuple[str, VideoSpec]:
-        """The prompt and spec one clip runs with. A native-audio scene makes its own sound
-        but never its own score: the film's music is one bed under every scene. It voices its
-        own dialogue: the spoken words go to the provider as structured `dialogue`, said on
-        camera by the scene's `speaker` when it names one."""
-        if uses_native_audio(scene):
-            spec = replace(spec, music=False)
+        """The prompt and spec one clip runs with. A native-audio scene makes its own sound,
+        and its own music only when the caller says the film has no music bed (`spec.music`).
+        It voices its own dialogue: the spoken words go to the provider as structured
+        `dialogue`, said on camera by the scene's `speaker` when it names one."""
+        if not uses_native_audio(scene):
+            spec = replace(spec, music=True)
         dialogue = self._spoken_line(scene)
         if dialogue:
             speaker = (scene.get("speaker") or "").strip()
