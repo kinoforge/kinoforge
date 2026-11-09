@@ -21,24 +21,27 @@ from kinoforge.segments.story.languages import language_name, whisper_code
 
 # --- audio modes ----------------------------------------------------------
 
-def test_mode_for_defaults_to_voiceover():
-    assert mode_for({}) is SceneAudioMode.VOICEOVER
+def test_mode_for_unset_is_the_voice_with_words_and_none_without():
+    assert mode_for({"narration": "Hello."}) is SceneAudioMode.VOICEOVER
+    assert mode_for({}) is SceneAudioMode.NONE
 
 
-def test_mode_for_reads_native():
-    assert mode_for({"audio_mode": "native"}) is SceneAudioMode.NATIVE
+def test_mode_for_reads_each_choice():
+    for mode in SceneAudioMode:
+        assert mode_for({"narration": "Hello.", "audio_mode": mode.value}) is mode
 
 
-def test_mode_for_unknown_falls_back_to_voiceover():
-    assert mode_for({"audio_mode": "surround"}) is SceneAudioMode.VOICEOVER
+def test_mode_for_unknown_falls_back_to_the_default():
+    assert mode_for({"narration": "Hi.", "audio_mode": "surround"}) is SceneAudioMode.VOICEOVER
 
 
-def test_includes_voiceover_and_uses_native_are_complementary():
-    assert includes_voiceover({}) is True
-    assert uses_native_audio({}) is False
-    native = {"audio_mode": "native"}
-    assert includes_voiceover(native) is False
-    assert uses_native_audio(native) is True
+def test_a_scene_is_voiced_over_or_plays_its_own_sound_never_both():
+    worded = {"narration": "Hi."}
+    assert includes_voiceover(worded) and not uses_native_audio(worded)
+    native = {**worded, "audio_mode": "native"}
+    assert uses_native_audio(native) and not includes_voiceover(native)
+    silent = {**worded, "audio_mode": "none"}
+    assert not includes_voiceover(silent) and not uses_native_audio(silent)
 
 
 def test_clear_voiceover_nulls_derived_fields():

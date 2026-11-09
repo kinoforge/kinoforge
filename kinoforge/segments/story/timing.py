@@ -3,7 +3,7 @@
 import math
 import re
 
-from kinoforge.segments.story.audio_modes import uses_native_audio
+from kinoforge.segments.story.audio_modes import includes_voiceover
 
 
 class NarrationTimer:
@@ -37,9 +37,10 @@ class NarrationTimer:
 
     @classmethod
     def scene_seconds(cls, scene: dict) -> float:
-        """A scene that plays its own sound lasts as long as its clip; else its measured
-        voiceover, else the length it asks for (`seconds`), else its narration's estimate."""
-        if uses_native_audio(scene):
+        """A clip that is not voiced over lasts as long as itself; else a scene lasts its
+        measured voiceover, else the length it asks for (`seconds`), else its narration's
+        estimate."""
+        if not includes_voiceover(scene):
             clip = cls._positive(scene.get("video_seconds"))
             if clip:
                 return clip

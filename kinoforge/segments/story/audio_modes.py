@@ -4,15 +4,22 @@ from enum import StrEnum
 
 
 class SceneAudioMode(StrEnum):
+    NONE = "none"
     VOICEOVER = "voiceover"
     NATIVE = "native"
 
 
+def _default(scene: dict) -> SceneAudioMode:
+    """Unset, a scene with words is voiced over and one without plays no sound."""
+    spoken = str(scene.get("narration") or "").strip()
+    return SceneAudioMode.VOICEOVER if spoken else SceneAudioMode.NONE
+
+
 def mode_for(scene: dict) -> SceneAudioMode:
     try:
-        return SceneAudioMode(scene.get("audio_mode") or SceneAudioMode.VOICEOVER)
+        return SceneAudioMode(scene.get("audio_mode") or _default(scene))
     except ValueError:
-        return SceneAudioMode.VOICEOVER
+        return _default(scene)
 
 
 def includes_voiceover(scene: dict) -> bool:
