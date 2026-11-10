@@ -201,6 +201,7 @@ class StoryOperations:
             f"{index + 1}. IMAGE: {scene.get('prompt', '')}\n"
             f"   NARRATION: {scene.get('narration', '')}"
             + (f"\n   SPEAKER: {scene['speaker']}" if scene.get("speaker") else "")
+            + self._length(scene)
             for index, scene in enumerate(scenes)
         )
         prompt = self.ports.prompt(
@@ -233,6 +234,15 @@ class StoryOperations:
         if not any(shot["action"] or shot["camera"] for shot in shots):
             return {"ok": False, "error": "director returned no shots"}
         return {"ok": True, "shots": shots}
+
+    @staticmethod
+    def _length(scene: dict) -> str:
+        """The clip length the scene asks for, so its shot fills it."""
+        try:
+            seconds = float(scene.get("seconds") or 0)
+        except (TypeError, ValueError):
+            return ""
+        return f"\n   LENGTH: {seconds:g} seconds" if seconds > 0 else ""
 
     @staticmethod
     def _clean_suggestion(text: str, single_line: bool) -> str:
