@@ -129,3 +129,15 @@ def test_a_clip_made_to_a_soundtrack_sends_it_as_audio():
     assert client._video_payload("p", linked)["audio_url"] == "https://assets/line"
     assert client._video_payload("p", inline)["audio_b64"] == base64.b64encode(b"line").decode()
     assert "audio_b64" not in client._video_payload("p", VideoSpec(5, 720, "9:16"))
+
+
+def test_render_and_speech_switches_are_sent_only_when_set():
+    client = InfrelayClient("http://infrelay")
+    plain = client._video_payload("p", VideoSpec(5, 720, "9:16"))
+    picked = client._video_payload("p", VideoSpec(
+        5, 720, "9:16", speech_mode="to_camera", camera_style="observed", preset="cartoon",
+    ))
+    assert not {"speech_mode", "camera_style", "preset"} & set(plain)
+    assert (picked["speech_mode"], picked["camera_style"], picked["preset"]) == (
+        "to_camera", "observed", "cartoon",
+    )

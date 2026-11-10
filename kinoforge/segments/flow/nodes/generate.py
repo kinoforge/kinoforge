@@ -5,7 +5,7 @@ from typing import Any, Dict
 
 from pydantic import Field
 
-from kinoforge.contract import AITask, ImageSpec, VideoSpec
+from kinoforge.contract import AITask, CameraStyle, ImageSpec, SpeechMode, VideoSpec
 from kinoforge.definitions import DefinitionBundle
 from kinoforge.segments.flow.nodes.base import (
     FlowError,
@@ -155,6 +155,14 @@ class VideoGenConfig(NodeConfig):
         description="Who says the spoken line: blank for a narrator off camera, a name for that "
         "person on camera.",
     )
+    speech_mode: SpeechMode = Field(
+        default=SpeechMode.IN_SCENE, title="Line said",
+        description="To the others in the scene, or into the camera.",
+    )
+    camera_style: CameraStyle = Field(
+        default=CameraStyle.FREE, title="Camera",
+        description="As the prompt says, observing from aside, or facing the speaker.",
+    )
     model: ModelChoice = model_field(NodeMedia.VIDEO)
 
 
@@ -199,6 +207,8 @@ class VideoGen(NodeSpec):
             speaker=config.speaker.strip(),
             music=config.music,
             audio=ctx.file(inputs.get("audio")),
+            speech_mode=config.speech_mode.value,
+            camera_style=config.camera_style.value,
         )
         prompt = FlowStyle.video(ctx, inputs["prompt"], config.style)
         data = ctx.infrelay.video(AITask.VIDEO, config.model.ref(), prompt, spec)

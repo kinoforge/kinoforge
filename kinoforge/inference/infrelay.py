@@ -285,6 +285,9 @@ class InfrelayClient:
                 payload["speaker"] = spec.speaker
         if not spec.music:
             payload["music"] = False
+        for key in ("speech_mode", "camera_style", "preset"):
+            if value := getattr(spec, key):
+                payload[key] = value
         return payload
 
     def music(self, task: AITask, ref: ModelRef, prompt: str, *, seconds: int = 30) -> bytes:

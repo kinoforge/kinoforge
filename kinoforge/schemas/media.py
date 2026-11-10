@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from kinoforge.contract import CameraStyle, SpeechMode
 from kinoforge.observ import active
 from kinoforge.schemas.common import (
     CHARGES_DESCRIPTION,
@@ -152,6 +153,18 @@ class VideoOptionsRequest(BaseModel):
     music: bool = Field(
         default=False,
         description="A clip that makes its own sound may add music too (the film has no music bed).",
+    )
+    speech_mode: Optional[SpeechMode] = Field(
+        default=None,
+        description="How a named speaker says the line; none keeps the model's default.",
+    )
+    camera_style: Optional[CameraStyle] = Field(
+        default=None, description="How the camera behaves; none keeps the model's default."
+    )
+    preset: str = Field(
+        default="", max_length=40,
+        description="The model's render preset (our H3: draft, cartoon, realistic, high); blank "
+        "keeps its default.",
     )
 
 

@@ -53,6 +53,8 @@ class MediaUtils:
             enhance=opts.enhance, enhance_style=opts.enhance_style, references=tuple(references),
             music=opts.music,
             last_frame=cls.file(request.last_image_b64, request.last_image_url),
+            speech_mode=opts.speech_mode or "", camera_style=opts.camera_style or "",
+            preset=opts.preset.strip(),
         )
 
     @staticmethod

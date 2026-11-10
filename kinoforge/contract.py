@@ -107,6 +107,23 @@ class ImageSpec:
     enhance_style: str = ""
 
 
+class SpeechMode(StrEnum):
+    """How a named speaker says the spoken line: to the others in the scene, or into the
+    camera."""
+
+    IN_SCENE = "in_scene"
+    TO_CAMERA = "to_camera"
+
+
+class CameraStyle(StrEnum):
+    """How the camera behaves: as the prompt says, observing from a third-person view, or
+    facing the speaker like a presenter."""
+
+    FREE = "free"
+    OBSERVED = "observed"
+    PRESENTER = "presenter"
+
+
 @dataclass(frozen=True)
 class VideoSpec:
     seconds: float
@@ -123,6 +140,11 @@ class VideoSpec:
     last_frame: Optional[MediaFile] = None
     # A soundtrack a model that takes one makes the clip to.
     audio: Optional[MediaFile] = None
+    # Blank keeps the model's own default. A render preset is a name the model's deployment
+    # defines (our H3: draft, cartoon, realistic, high).
+    speech_mode: str = ""
+    camera_style: str = ""
+    preset: str = ""
 
 
 class JobKind(StrEnum):
