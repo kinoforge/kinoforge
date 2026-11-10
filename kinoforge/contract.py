@@ -124,6 +124,20 @@ class CameraStyle(StrEnum):
     PRESENTER = "presenter"
 
 
+class ShotStart(StrEnum):
+    """How a planned shot joins the one before: its clip goes on from that clip's last frame,
+    or the film cuts to the scene's own picture (another place, time or side)."""
+
+    CONTINUE = "continue"
+    CUT = "cut"
+
+    @classmethod
+    def of(cls, value: object) -> str:
+        """The planner's answer when it is one of these, else blank (the caller's default)."""
+        text = str(value or "").strip().lower()
+        return text if text in cls._value2member_map_ else ""
+
+
 @dataclass(frozen=True)
 class VideoSpec:
     seconds: float

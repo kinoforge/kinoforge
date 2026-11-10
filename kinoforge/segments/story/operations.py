@@ -2,7 +2,7 @@ import json
 import re
 from enum import Enum
 
-from kinoforge.contract import AITask, ModelRef
+from kinoforge.contract import AITask, ModelRef, ShotStart
 from kinoforge.segments.story.agent import ModelFailure, clean_text, strip_dashes
 from kinoforge.segments.story.formats import normalize
 from kinoforge.segments.story.languages import known_language, language_name
@@ -227,6 +227,7 @@ class StoryOperations:
                     "camera": str(shot.get("camera") or "").strip(),
                     "sound": str(shot.get("sound") or "").strip(),
                     "continuity": str(shot.get("continuity") or "").strip(),
+                    "start": ShotStart.of(shot.get("start")),
                 }
             )
         if not any(shot["action"] or shot["camera"] for shot in shots):
