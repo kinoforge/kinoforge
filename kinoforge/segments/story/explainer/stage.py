@@ -51,14 +51,16 @@ class StageWriter:
             prompt = brief if attempt == 0 else self.check.repair(brief, drawn, problems)
             try:
                 answer = self.ports.complete_json(
-                    AITask.STORY_BOARD, system, prompt, route=route or ModelRef(),
-                    temperature=self.TEMPERATURE, max_tokens=max_tokens,
+                    AITask.STORY_BOARD,
+                    system,
+                    prompt,
+                    route=route or ModelRef(),
+                    temperature=self.TEMPERATURE,
+                    max_tokens=max_tokens,
                 )
             except json.JSONDecodeError as error:
                 drawn, problems = None, [f"the answer was not valid JSON ({error})"]
                 continue
-            except Exception:
-                return None
             drawn = answer.get("stage", answer) if isinstance(answer, dict) else answer
             problems = self.check.problems(drawn)
             if not problems and isinstance(drawn, dict):
