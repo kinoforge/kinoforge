@@ -285,7 +285,7 @@ class InfrelayClient:
                 payload["speaker"] = spec.speaker
         if not spec.music:
             payload["music"] = False
-        for key in ("speech_mode", "camera_style", "preset"):
+        for key in ("speech_mode", "camera_style", "delivery", "preset"):
             if value := getattr(spec, key):
                 payload[key] = value
         return payload

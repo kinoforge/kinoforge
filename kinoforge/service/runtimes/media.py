@@ -54,6 +54,7 @@ class MediaUtils:
             music=opts.music,
             last_frame=cls.file(request.last_image_b64, request.last_image_url),
             speech_mode=opts.speech_mode or "", camera_style=opts.camera_style or "",
+            delivery=opts.delivery.strip(),
             preset=opts.preset.strip(),
         )
 

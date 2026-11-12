@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from enum import IntEnum, StrEnum
+from math import ceil
 from typing import Any, Dict
 
 from pydantic import Field
 
-from kinoforge.contract import AITask, CameraStyle, ImageSpec, SpeechMode, VideoSpec
+from kinoforge.contract import AITask, CameraStyle, Delivery, ImageSpec, SpeechMode, VideoSpec
 from kinoforge.definitions import DefinitionBundle
 from kinoforge.segments.flow.nodes.base import (
     FlowError,
@@ -140,12 +141,29 @@ class ImageGen(NodeSpec):
         return {"image": ctx.write("image", data, MediaKinds.image_suffix(data))}
 
 
+class SpokenLength:
+    """A clip as long as its spoken line: the words at the pace, plus the pad, within Seconds'
+    own bounds."""
+
+    MOST_PACE = 6
+    MOST_PAD = 5
+    LEAST, MOST = 1, 20
+
+    @classmethod
+    def seconds(cls, line: str, config: Any) -> int:
+        words = len(line.split())
+        if not words or config.speaking_pace <= 0:
+            return config.seconds
+        asked = ceil(words / config.speaking_pace + config.speaking_pad)
+        return max(cls.LEAST, min(cls.MOST, asked))
+
+
 class VideoGenConfig(NodeConfig):
     retired = ("resolution",)
 
     style: str = style_field()
     seconds: int = Field(
-        default=5, ge=1, le=20, title="Seconds",
+        default=5, ge=SpokenLength.LEAST, le=SpokenLength.MOST, title="Seconds",
         description="The length asked for; a model makes the nearest length it supports.",
     )
     aspect_ratio: Aspect = Field(default=Aspect.PORTRAIT, title="Aspect")
@@ -162,6 +180,19 @@ class VideoGenConfig(NodeConfig):
     camera_style: CameraStyle = Field(
         default=CameraStyle.FREE, title="Camera",
         description="As the prompt says, observing from aside, or facing the speaker.",
+    )
+    delivery: str = Field(
+        default="", max_length=Delivery.MOST, pattern=Delivery.PATTERN, title="How it is said",
+        description="In words, e.g. at a lively, natural pace. Blank says nothing of it.",
+    )
+    speaking_pace: float = Field(
+        default=0, ge=0, le=SpokenLength.MOST_PACE, title="Speaking pace",
+        description="Words per second the spoken line is said at; the clip is then as long as "
+        "the line. 0 keeps Seconds.",
+    )
+    speaking_pad: float = Field(
+        default=0, ge=0, le=SpokenLength.MOST_PAD, title="Speaking pad",
+        description="Seconds added after the line when Speaking pace sets the length.",
     )
     model: ModelChoice = model_field(NodeMedia.VIDEO)
 
@@ -194,8 +225,9 @@ class VideoGen(NodeSpec):
     resolution = Resolution.SD
 
     def run(self, ctx: NodeContext, inputs: Dict[str, Any], config: Any) -> Dict[str, Any]:
+        dialogue = str(inputs.get("dialogue") or "")
         spec = VideoSpec(
-            seconds=config.seconds,
+            seconds=SpokenLength.seconds(dialogue, config),
             resolution=int(self.resolution),
             aspect_ratio=config.aspect_ratio.value,
             image=ctx.file(inputs.get("first_frame")),
@@ -203,12 +235,13 @@ class VideoGen(NodeSpec):
             references=tuple(
                 file for media in inputs.get("references") or [] if (file := ctx.file(media))
             ),
-            dialogue=str(inputs.get("dialogue") or ""),
+            dialogue=dialogue,
             speaker=config.speaker.strip(),
             music=config.music,
             audio=ctx.file(inputs.get("audio")),
             speech_mode=config.speech_mode.value,
             camera_style=config.camera_style.value,
+            delivery=" ".join(config.delivery.split()),
         )
         prompt = FlowStyle.video(ctx, inputs["prompt"], config.style)
         data = ctx.infrelay.video(AITask.VIDEO, config.model.ref(), prompt, spec)

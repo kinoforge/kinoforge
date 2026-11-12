@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from kinoforge.contract import CameraStyle, SpeechMode
+from kinoforge.contract import CameraStyle, Delivery, SpeechMode
 from kinoforge.observ import active
 from kinoforge.schemas.common import (
     CHARGES_DESCRIPTION,
@@ -160,6 +160,11 @@ class VideoOptionsRequest(BaseModel):
     )
     camera_style: Optional[CameraStyle] = Field(
         default=None, description="How the camera behaves; none keeps the model's default."
+    )
+    delivery: str = Field(
+        default="", max_length=Delivery.MOST, pattern=Delivery.PATTERN,
+        description="How a named speaker says the line, in words (e.g. at a lively, natural "
+        "pace); blank says nothing of it.",
     )
     preset: str = Field(
         default="", max_length=40,

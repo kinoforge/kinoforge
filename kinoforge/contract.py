@@ -107,6 +107,14 @@ class ImageSpec:
     enhance_style: str = ""
 
 
+class Delivery:
+    """The bounds of a caller's word on how a line is said: one short line, no brackets (they
+    would open or close a model's own tags)."""
+
+    MOST = 80
+    PATTERN = r"^[^<>\[\]{}\n\r]*$"
+
+
 class SpeechMode(StrEnum):
     """How a named speaker says the spoken line: to the others in the scene, or into the
     camera."""
@@ -158,6 +166,8 @@ class VideoSpec:
     # defines (our H3: draft, cartoon, realistic, high).
     speech_mode: str = ""
     camera_style: str = ""
+    # How a named speaker says the line, in words ("at a lively, natural pace"); blank: unsaid.
+    delivery: str = ""
     preset: str = ""
 
 

@@ -80,6 +80,29 @@ def test_a_spoken_line_is_said_by_the_speaker_the_node_names(tmp_path):
     assert (fake.calls[0].dialogue, fake.calls[0].speaker) == ("Hello.", "Maya")
 
 
+def test_a_spoken_line_sets_the_clip_length_at_the_nodes_pace_and_says_how(tmp_path):
+    fake = FakeInfrelay()
+    fake.video = lambda task, ref, prompt, spec: fake.calls.append(spec) or b"mp4"
+    runtime = _runtime(tmp_path, fake)
+    line = {"prompt": "a keeper waves", "dialogue": " ".join(["word"] * 14)}
+    paced = {"speaking_pace": 2.8, "speaking_pad": 1.2, "delivery": " at a  lively pace "}
+    _run(runtime, "generate.video", paced, line)
+    _run(runtime, "generate.video", {"seconds": 9}, line)
+
+    assert (fake.calls[0].seconds, fake.calls[0].delivery) == (7, "at a lively pace")
+    assert (fake.calls[1].seconds, fake.calls[1].delivery) == (9, "")
+
+
+@pytest.mark.parametrize(
+    "config",
+    [{"delivery": "<d>loud</d>"}, {"delivery": "x" * 81}, {"speaking_pace": 7},
+     {"speaking_pad": -1}, {"speaking_pace": "fast"}],
+)
+def test_a_video_node_refuses_unsafe_speaking_settings(tmp_path, config):
+    with pytest.raises(Exception):
+        _run(_runtime(tmp_path), "generate.video", config, {"prompt": "a keeper waves"})
+
+
 def test_a_node_is_refused_what_its_ports_do_not_take(tmp_path):
     runtime = _runtime(tmp_path)
     with pytest.raises(FlowError, match="needs Prompt"):
