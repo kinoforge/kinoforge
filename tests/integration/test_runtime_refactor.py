@@ -165,14 +165,14 @@ def _finder(config):
 
 def test_ai_route_builds_the_ai_finder_named_by_route():
     finder = _finder({**_CONFIG, "moment_finder": "auto",
-                      "moment_route": {"provider": "videogpt", "model": "auto"}})
+                      "moment_route": {"provider": "kinoforge", "model": "auto"}})
     assert isinstance(finder, AiMomentFinder)
-    assert finder.name == "videogpt/auto"
+    assert finder.name == "kinoforge/auto"
 
 
 def test_offline_finder_builds_the_offline_finder_even_with_a_route():
     finder = _finder({**_CONFIG, "moment_finder": "offline",
-                      "moment_route": {"provider": "videogpt", "model": "auto"}})
+                      "moment_route": {"provider": "kinoforge", "model": "auto"}})
     assert isinstance(finder, OfflineMomentFinder)
 
 
@@ -287,7 +287,7 @@ def test_every_answered_call_is_reported_with_its_price(monkeypatch):
 
     def post(url, headers, json, timeout):
         return SimpleNamespace(status_code=200, text="", json=lambda: {
-            "provider": "videogpt", "model": "story-auto", "kind": "text",
+            "provider": "kinoforge", "model": "story-auto", "kind": "text",
             "output": {"type": "text", "value": "hello"}, "usage": {"credits": 2, "byok": False},
         })
 

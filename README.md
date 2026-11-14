@@ -2,7 +2,7 @@
 
 [![Website](https://img.shields.io/badge/website-kinoforge.dev-7c3aed)](https://kinoforge.dev)
 [![License](https://img.shields.io/badge/license-PolyForm%20NC%201.0.0-blue)](LICENSE)
-[![Last commit](https://img.shields.io/github/last-commit/videogpt-dev/kinoforge)](https://github.com/videogpt-dev/kinoforge/commits/main)
+[![Last commit](https://img.shields.io/github/last-commit/kinoforge/kinoforge)](https://github.com/kinoforge/kinoforge/commits/main)
 ![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)
 
 The open generation engine behind Kinoforge (kinoforge.dev). It runs the clip, story, and series pipelines and is
@@ -22,7 +22,7 @@ driven over REST.
 Kinoforge is stateless by design. The caller resolves the definitions a run needs, such as agents,
 screenwriters, and presets, into a frozen bundle and passes it in
 
-Community definitions about prompts(screenwriters,presets,etc) live in a separate repo Videogpt-catalog.
+Community definitions about prompts(screenwriters,presets,etc) live in a separate repo kinoforge-catalog.
 
 ## Running it
 

@@ -7,7 +7,7 @@ from __future__ import annotations
 from kinoforge.schemas import ClipsOptionsRequest
 from kinoforge.segments.clips.moments.finders import MomentFinders
 
-_ROUTE = {"provider": "videogpt", "model": "auto"}
+_ROUTE = {"provider": "kinoforge", "model": "auto"}
 
 
 def _merge(config: dict) -> dict:

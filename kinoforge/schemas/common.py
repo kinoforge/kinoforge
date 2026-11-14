@@ -17,7 +17,7 @@ class InferenceChargeResponse(BaseModel):
 
     task: str = Field(description="The AI task it ran as.")
     kind: str = ""
-    provider: str = Field(default="", description="Who served it (videogpt for a hidden pick).")
+    provider: str = Field(default="", description="Who served it (kinoforge for a hidden pick).")
     model: str = ""
     credits: int = Field(default=0, ge=0, description="Infrelay's price: inference and hardware.")
     byok: bool = Field(default=False, description="Ran on the caller's own key.")

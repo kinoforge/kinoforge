@@ -241,7 +241,7 @@ def test_a_queued_clip_is_submitted_with_its_prompt_and_read_back_when_done(monk
 
 
 def test_a_clip_the_gateway_stored_comes_back_as_its_key_not_its_bytes(monkeypatch):
-    stored = "videogpt-operation/generation/2026101912/job-9.mp4"
+    stored = "kinoforge/generation/2026101912/job-9.mp4"
     result = {"output": {"type": "url", "value": "/media/2026101912/job-9.mp4?sig=x"}}
     fake(
         monkeypatch,
