@@ -78,6 +78,7 @@ class StoryOperation(StrEnum):
     DIRECT_SHOTS = "direct_shots"
     DRAW_BOARDS = "draw_boards"
     WRITE_STAGE = "write_stage"
+    DRAW_ELEMENTS = "draw_elements"
     SUGGEST_FIELD = "suggest_field"
 
 
@@ -95,7 +96,9 @@ class StoryOperationRequest(OperationRequest):
             "Operation input: project/story, scene index, language, or instructions; "
             "draw_boards also takes the explainer kit ({catalog, schema}), scene targets and "
             "fixes ({scene index: problems}) that send a drawn board back to its writer; "
-            "write_stage takes the record and the kit and returns the video's stage alone."
+            "write_stage takes the record and the kit and returns the video's stage alone; "
+            "draw_elements takes wants ([{word, for}]), the topic and the kit's element format "
+            "({schema, limits}) and returns a checked shape per picture."
         ),
     )
     agent: dict[str, Any] = Field(default_factory=dict)

@@ -19,6 +19,7 @@ from kinoforge.observ import KinoLogger, bind, build_logger, logged, reset
 from kinoforge.schemas import StoryOperation, StoryOperationRequest, StoryWriteRequest
 from kinoforge.segments.story.agent import Screenwriter, StoryBrief
 from kinoforge.segments.story.explainer.boards import BoardWriter
+from kinoforge.segments.story.explainer.elements import ElementDrawer
 from kinoforge.segments.story.explainer.stage import StageWriter
 from kinoforge.segments.story.operations import StoryOperations
 from kinoforge.segments.story.ports import StoryPorts
@@ -167,6 +168,14 @@ class StoryRuntime:
             case StoryOperation.WRITE_STAGE:
                 return StageWriter(operations.ports, dict(payload.get("kit") or {})).write(
                     dict(payload.get("record") or {}), route, int(budgets.get("board") or 0)
+                )
+            case StoryOperation.DRAW_ELEMENTS:
+                wants = payload.get("wants")
+                return ElementDrawer(operations.ports, dict(payload.get("format") or {})).draw(
+                    wants if isinstance(wants, list) else [],
+                    str(payload.get("topic") or ""),
+                    route,
+                    int(budgets.get("element") or 0),
                 )
             case StoryOperation.DRAW_BOARDS:
                 targets = payload.get("targets")
