@@ -56,7 +56,8 @@ class StoryQualityGate:
         text_prompts = [
             str(i + 1)
             for i, scene in enumerate(scenes)
-            if self._VISIBLE_TEXT_RE.search(str(scene.get("prompt") or ""))
+            if self._ctx.get("pictured", True)
+            and self._VISIBLE_TEXT_RE.search(str(scene.get("prompt") or ""))
         ]
         if text_prompts:
             advisory.append(f"{self._scenes(text_prompts)} may render on-screen text")

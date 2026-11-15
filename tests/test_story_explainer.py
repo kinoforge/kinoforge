@@ -291,6 +291,15 @@ def test_write_stage_returns_the_stage_alone():
     assert not any(system.startswith("<explainer_board>") for system, _ in fake.prompts)
 
 
+def test_the_stage_reads_the_makers_brief_beside_the_narration():
+    fake = _Writer({"stage": [STAGE]})
+    record = {**RECORD, "input": {"language": "", "description": "Show the AWS logo."}}
+    StageWriter(fake.ports(), STAGED).write(record, None, 0)
+    sent = json.loads(fake.prompts[0][1])
+    assert sent["brief"] == "Show the AWS logo."
+    assert sent["narration"] == ["Bees pollinate.", "", "Crops."]
+
+
 def test_write_stage_fails_without_a_stage_prompt():
     fake = _Writer({}, missing={"explainer_stage"})
     result = StageWriter(fake.ports(), STAGED).write(RECORD, None, 0)

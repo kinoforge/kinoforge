@@ -56,7 +56,7 @@ class StageWriter:
             )
         except DefinitionError:
             return None
-        brief = self._brief(story)
+        brief = self._brief(rec)
         drawn: object = None
         problems: list[str] = []
         for attempt in range(2):
@@ -80,11 +80,13 @@ class StageWriter:
         raise StageRefused(f"the stage was refused: {problems[0] if problems else 'not an object'}")
 
     @staticmethod
-    def _brief(story: dict) -> str:
+    def _brief(rec: dict) -> str:
+        story = rec.get("story") or {}
         scenes = story.get("scenes") or []
         return json.dumps(
             {
                 "topic": clean_text(story.get("logline")) or clean_text(story.get("title")),
+                "brief": clean_text((rec.get("input") or {}).get("description")),
                 "narration": [clean_text(scene.get("narration")) for scene in scenes],
             },
             ensure_ascii=False,

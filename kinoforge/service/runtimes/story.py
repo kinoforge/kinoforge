@@ -111,8 +111,9 @@ class StoryRuntime:
         ctx = Screenwriter(ports).build_context(StoryBrief.from_mapping(fields))
         # Caller-set flags the writer reads (e.g. require_motion, so Video Mode always gets
         # clips) ride through the request's open context.
-        if "require_motion" in fields:
-            ctx["require_motion"] = bool(fields["require_motion"])
+        for flag in ("require_motion", "pictured"):
+            if flag in fields:
+                ctx[flag] = bool(fields[flag])
         return ctx
 
     @InferenceCharges.reported

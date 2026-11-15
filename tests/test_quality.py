@@ -49,6 +49,13 @@ def test_visible_text_prompt_is_advisory():
     assert any("may render on-screen text" in a for a in advisory)
 
 
+def test_scenes_no_image_model_draws_skip_the_text_check():
+    story = _clean_story()
+    story["scenes"][0]["prompt"] = 'a sign saying "OPEN"'
+    _, advisory = validate_story(story, {"scene_count": 1, "pictured": False})
+    assert not any("on-screen text" in a for a in advisory)
+
+
 def test_quoted_text_prompt_is_advisory():
     story = _clean_story()
     story["scenes"][0]["prompt"] = 'a sign saying "OPEN"'
