@@ -86,6 +86,13 @@ def test_a_refused_drawing_goes_back_once_with_what_was_wrong():
     assert len(repairs) == 2 and "drawing.parts[0].d" in repairs[0]
 
 
+def test_a_drawing_is_tried_as_often_as_the_caller_says_and_a_refused_one_comes_back():
+    fake = _Drawer({"leaf": [BAD, BAD, BAD]})
+    result = ElementDrawer(fake.ports(), FORM).draw([{"word": "leaf"}], "", None, 0, tries=3)
+    assert sum("was refused" in user for _, _, user, _ in fake.calls) == 2
+    assert result["ok"] is False and result["errors"][0]["answer"] == BAD
+
+
 def test_paths_past_the_kit_limit_are_refused():
     fake = _Drawer({"gap": [LONG, LONG]})
     result = ElementDrawer(fake.ports(), FORM).draw([{"word": "gap"}], "", None, 0)

@@ -32,6 +32,8 @@ class StageIds:
 
 
 class BoardCheck:
+    TRIES = 2
+
     def __init__(
         self, schema: Mapping, name: str = "board", stage: Mapping | None = None, ref: str = ""
     ) -> None:
@@ -45,7 +47,32 @@ class BoardCheck:
         found = self._validator.iter_errors(answer)
         errors = [inner for error in found for inner in self._inside(error)]
         errors.sort(key=lambda error: [str(part) for part in error.absolute_path])
-        return [f"{self._where(error.absolute_path)}: {error.message}" for error in errors[:limit]]
+        return [f"{self._where(error.absolute_path)}: {self._plain(error)}" for error in errors[:limit]]
+
+    @classmethod
+    def tries(cls, asked: object) -> int:
+        return max(1, asked) if isinstance(asked, int) and not isinstance(asked, bool) else cls.TRIES
+
+    @staticmethod
+    def refused(answer: object) -> dict:
+        return {} if answer is None else {"answer": answer}
+
+    @staticmethod
+    def _plain(error: ValidationError) -> str:
+        given = error.instance
+        match error.validator:
+            case "minItems" if isinstance(given, list):
+                swap = "; if the narration gives fewer, use another kind of piece"
+                more = swap if "piece" in error.absolute_path else ""
+                return f"has {len(given)}, needs at least {error.validator_value}{more}"
+            case "maxItems" if isinstance(given, list):
+                return f"has {len(given)}, at most {error.validator_value}"
+            case "maxLength" if isinstance(given, str):
+                return f"{given!r} is {len(given)} characters, at most {error.validator_value}"
+            case "required":
+                return f"{error.message}; add it"
+            case _:
+                return error.message
 
     @staticmethod
     def _inside(error: ValidationError) -> list[ValidationError]:

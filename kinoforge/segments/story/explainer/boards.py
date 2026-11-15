@@ -1,7 +1,7 @@
 """Explainer boards: what each scene shows instead of a picture, as data the caller's renderer
 draws. One board per scene, written side by side from its narration against the caller's kit
 (the catalog a writer reads and the JSON schema a board must meet), checked, and sent back to
-the writer once with what was wrong. The video's stage (stage.py) is written first, so every
+the writer with what was wrong, as many times as the caller allows. The video's stage (stage.py) is written first, so every
 board names the same diagram nodes, code files and road side, and reads only the parts of the
 catalog the stage says this video draws."""
 
@@ -26,6 +26,7 @@ class Drawn:
     index: int
     board: dict | None
     error: str = ""
+    answer: object = None
 
 
 class KitCatalog:
@@ -94,6 +95,7 @@ class BoardWriter:
         route: ModelRef | None = None,
         max_tokens: int = 0,
         fixes: Mapping[int, list[str]] | None = None,
+        tries: int = BoardCheck.TRIES,
     ) -> dict:
         story = rec.get("story") or {}
         scenes = story.get("scenes") or []
@@ -104,9 +106,9 @@ class BoardWriter:
         if not self.catalog:
             return {"ok": False, "error": "the explainer kit is missing"}
         try:
-            stage = self.stages.stage(rec, route, max_tokens)
+            stage = self.stages.stage(rec, route, max_tokens, tries)
         except StageRefused as error:
-            return {"ok": False, "error": str(error)}
+            return {"ok": False, "error": str(error), **BoardCheck.refused(error.answer)}
         check = BoardCheck(self.schema, stage=stage, ref=self.ref)
         fixes = fixes or {}
         language = str((rec.get("input") or {}).get("language") or "")
@@ -122,15 +124,20 @@ class BoardWriter:
             jobs = [
                 pool.submit(
                     with_context(self._scene), system, story, shared, i, route, max_tokens,
-                    check, fixes.get(i) or [],
+                    check, fixes.get(i) or [], tries,
                 )
                 for i in wanted
             ]
             drawn = [job.result() for job in jobs]
         boards = [{"index": d.index, "board": d.board} for d in drawn if d.board is not None]
-        errors = [{"index": d.index, "error": d.error} for d in drawn if d.board is None]
+        errors = [
+            {"index": d.index, "error": d.error, **BoardCheck.refused(d.answer)}
+            for d in drawn
+            if d.board is None
+        ]
         if not boards:
-            return {"ok": False, "error": f"no board could be drawn: {errors[0]['error']}"}
+            first = errors[0]["error"]
+            return {"ok": False, "error": f"no board could be drawn: {first}", "errors": errors}
         return {"ok": True, "boards": boards, "errors": errors, "stage": stage}
 
     def _scene(
@@ -143,12 +150,13 @@ class BoardWriter:
         max_tokens: int,
         check: BoardCheck,
         fix: list[str],
+        tries: int,
     ) -> Drawn:
         brief = self._brief(story, index, shared)
         drawn = (story.get("scenes") or [])[index].get("board") if fix else None
         board: object = drawn
         problems: list[str] = list(fix)
-        for attempt in range(2):
+        for attempt in range(max(1, tries)):
             fresh = attempt == 0 and not (fix and board)
             prompt = brief if fresh else check.repair(brief, board, problems)
             try:
@@ -170,7 +178,7 @@ class BoardWriter:
                 return Drawn(index, board if isinstance(board, dict) else None)
         if isinstance(drawn, dict):
             return Drawn(index, drawn)
-        return Drawn(index, None, f"the board was refused: {problems[0]}")
+        return Drawn(index, None, f"the board was refused: {problems[0]}", board)
 
     @staticmethod
     def _brief(story: dict, index: int, shared: dict) -> str:

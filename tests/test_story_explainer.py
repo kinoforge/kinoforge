@@ -111,6 +111,35 @@ def test_an_answer_that_is_not_json_goes_back_once_too():
     assert sum("was refused" in user for _, user in fake.prompts) == 2
 
 
+def test_a_board_is_tried_as_often_as_the_caller_says_and_a_refused_one_comes_back():
+    fake = _Writer({1: [GOOD], 3: [BAD, BAD, BAD]})
+    result = BoardWriter(fake.ports(), KIT).draw(RECORD, tries=3)
+    assert sum("was refused" in user for _, user in fake.prompts) == 2
+    assert result["errors"][0]["answer"] == BAD
+
+
+def test_a_missing_field_and_a_short_list_say_plainly_what_to_fix():
+    listed = {
+        "type": "object",
+        "required": ["mood"],
+        "properties": {
+            "piece": {"type": "object", "properties": {"items": {"type": "array", "minItems": 2}}}
+        },
+    }
+    problems = BoardCheck(listed).problems({"piece": {"items": [{"when": "1999"}]}})
+    assert problems == [
+        "board: 'mood' is a required property; add it",
+        "board.piece.items: has 1, needs at least 2; if the narration gives fewer, use another kind of piece",
+    ]
+
+
+def test_a_stage_refused_on_its_one_try_comes_back_with_its_answer():
+    fake = _Writer({"stage": [{"nodes": "x"}]})
+    result = StageWriter(fake.ports(), STAGED).write(RECORD, None, 0, tries=1)
+    assert result["ok"] is False and result["answer"] == {"nodes": "x"}
+    assert len(fake.prompts) == 1
+
+
 def test_no_board_at_all_fails_the_operation():
     fake = _Writer({1: [RuntimeError("down")], 3: [RuntimeError("down")]})
     result = BoardWriter(fake.ports(), KIT).draw(RECORD)
@@ -156,7 +185,7 @@ def test_a_piece_that_fits_no_kind_is_told_what_is_wrong_in_its_own_kind():
     problems = BoardCheck(schema).problems(
         {"piece": {"type": "drive", "car": "you", "label": "x" * 19}}
     )
-    assert problems == [f"board.piece.label: {'x' * 19!r} is too long"]
+    assert problems == [f"board.piece.label: {'x' * 19!r} is 19 characters, at most 18"]
 
     problems = BoardCheck(schema).problems({"piece": {"type": "diagram", "car": "you"}})
     assert problems == ["board.piece: type 'diagram' is not a piece kind; use one of: drive, title"]

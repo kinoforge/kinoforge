@@ -19,6 +19,7 @@ from kinoforge.observ import KinoLogger, bind, build_logger, logged, reset
 from kinoforge.schemas import StoryOperation, StoryOperationRequest, StoryWriteRequest
 from kinoforge.segments.story.agent import Screenwriter, StoryBrief
 from kinoforge.segments.story.explainer.boards import BoardWriter
+from kinoforge.segments.story.explainer.check import BoardCheck
 from kinoforge.segments.story.explainer.elements import ElementDrawer
 from kinoforge.segments.story.explainer.stage import StageWriter
 from kinoforge.segments.story.operations import StoryOperations
@@ -133,6 +134,7 @@ class StoryRuntime:
     ) -> dict[str, Any]:
         payload = request.payload
         budgets = request.config.get("budgets") or {}
+        tries = BoardCheck.tries(request.config.get("tries"))
         match request.operation:
             case StoryOperation.REWRITE_SCENE:
                 index = payload.get("index")
@@ -168,7 +170,7 @@ class StoryRuntime:
                 )
             case StoryOperation.WRITE_STAGE:
                 return StageWriter(operations.ports, dict(payload.get("kit") or {})).write(
-                    dict(payload.get("record") or {}), route, int(budgets.get("board") or 0)
+                    dict(payload.get("record") or {}), route, int(budgets.get("board") or 0), tries
                 )
             case StoryOperation.DRAW_ELEMENTS:
                 wants = payload.get("wants")
@@ -177,6 +179,7 @@ class StoryRuntime:
                     str(payload.get("topic") or ""),
                     route,
                     int(budgets.get("element") or 0),
+                    tries,
                 )
             case StoryOperation.DRAW_BOARDS:
                 targets = payload.get("targets")
@@ -193,6 +196,7 @@ class StoryRuntime:
                     }
                     if isinstance(fixes, dict)
                     else None,
+                    tries,
                 )
             case StoryOperation.SUGGEST_FIELD:
                 return operations.suggest_field(

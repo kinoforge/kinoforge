@@ -24,6 +24,7 @@ class Drawing:
     want: Want
     shape: dict | None
     error: str = ""
+    answer: object = None
 
 
 class ElementDrawer:
@@ -37,7 +38,14 @@ class ElementDrawer:
         self.schema = dict(form.get("schema") or {})
         self.total = int((form.get("limits") or {}).get("total") or 0)
 
-    def draw(self, wants: list, topic: str, route: ModelRef | None, max_tokens: int) -> dict:
+    def draw(
+        self,
+        wants: list,
+        topic: str,
+        route: ModelRef | None,
+        max_tokens: int,
+        tries: int = BoardCheck.TRIES,
+    ) -> dict:
         asked = self._wants(wants)
         if not asked:
             return {"ok": False, "error": "no pictures to draw"}
@@ -51,14 +59,21 @@ class ElementDrawer:
         topic = clean_text(topic)
         with ThreadPoolExecutor(max_workers=min(self.WORKERS, len(asked))) as pool:
             jobs = [
-                pool.submit(with_context(self._one), system, topic, want, check, route, max_tokens)
+                pool.submit(
+                    with_context(self._one), system, topic, want, check, route, max_tokens, tries
+                )
                 for want in asked
             ]
             done = [job.result() for job in jobs]
         elements = [{"word": d.want.word, "shape": d.shape} for d in done if d.shape is not None]
-        errors = [{"word": d.want.word, "error": d.error} for d in done if d.shape is None]
+        errors = [
+            {"word": d.want.word, "error": d.error, **BoardCheck.refused(d.answer)}
+            for d in done
+            if d.shape is None
+        ]
         if not elements:
-            return {"ok": False, "error": f"no picture could be drawn: {errors[0]['error']}"}
+            first = errors[0]["error"]
+            return {"ok": False, "error": f"no picture could be drawn: {first}", "errors": errors}
         return {"ok": True, "elements": elements, "errors": errors}
 
     def _one(
@@ -69,6 +84,7 @@ class ElementDrawer:
         check: BoardCheck,
         route: ModelRef | None,
         max_tokens: int,
+        tries: int,
     ) -> Drawing:
         brief = json.dumps(
             {"picture": want.word, "stands_for": want.stands_for, "topic": topic},
@@ -76,7 +92,7 @@ class ElementDrawer:
         )
         drawn: object = None
         problems: list[str] = []
-        for attempt in range(2):
+        for attempt in range(max(1, tries)):
             prompt = brief if attempt == 0 else check.repair(brief, drawn, problems)
             try:
                 answer = self.ports.complete_json(
@@ -92,7 +108,8 @@ class ElementDrawer:
             problems = check.problems(drawn) or self._size(drawn)
             if not problems and isinstance(drawn, dict):
                 return Drawing(want, drawn)
-        return Drawing(want, None, f"the drawing was refused: {problems[0] if problems else 'not an object'}")
+        refused = problems[0] if problems else "not an object"
+        return Drawing(want, None, f"the drawing was refused: {refused}", drawn)
 
     def _size(self, drawn: object) -> list[str]:
         parts = drawn.get("parts") if isinstance(drawn, dict) else None
