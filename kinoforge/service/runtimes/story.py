@@ -165,11 +165,19 @@ class StoryRuntime:
                 )
             case StoryOperation.DRAW_BOARDS:
                 targets = payload.get("targets")
+                fixes = payload.get("fixes")
                 return BoardWriter(operations.ports, dict(payload.get("kit") or {})).draw(
                     dict(payload.get("record") or {}),
                     [int(i) for i in targets] if isinstance(targets, list) else None,
                     route,
                     int(budgets.get("board") or 0),
+                    {
+                        int(index): [str(problem) for problem in problems][:8]
+                        for index, problems in fixes.items()
+                        if isinstance(problems, list)
+                    }
+                    if isinstance(fixes, dict)
+                    else None,
                 )
             case StoryOperation.SUGGEST_FIELD:
                 return operations.suggest_field(

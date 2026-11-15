@@ -219,3 +219,66 @@ def test_a_stage_that_names_no_surfaces_keeps_the_whole_catalog():
     BoardWriter(fake.ports(), {**STAGED, "catalog": PARTED}).draw(RECORD)
     systems = {system for system, _ in fake.prompts if system.startswith("<explainer_board>")}
     assert systems == {"<explainer_board>PIECES: title\nDIAGRAM: show\nROAD: drive\nMAP: pin\nICONS: car, bee, map"}
+
+
+REFS = {
+    "type": "object",
+    "required": ["mood", "beats"],
+    "properties": {
+        "mood": {"enum": ["happy"]},
+        "beats": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "piece": {
+                        "type": "object",
+                        "properties": {"type": {"const": "show"}, "node": {"type": "string", "x-stage": "nodes"}},
+                    }
+                },
+            },
+        },
+    },
+}
+SHOWN = {"mood": "happy", "beats": [{"cue": "bees", "piece": {"type": "show", "node": "bee"}}]}
+STRAY = {"mood": "happy", "beats": [{"cue": "bees", "piece": {"type": "show", "node": "hive-cell"}}]}
+REFERRED = {**STAGED, "schema": REFS, "stage": {**STAGED["stage"], "ref": "x-stage"}}
+
+
+def test_a_board_naming_a_part_off_the_stage_goes_back_with_the_stage_ids():
+    fake = _Writer({"stage": [STAGE], 1: [STRAY, SHOWN], 3: [SHOWN]})
+    result = BoardWriter(fake.ports(), REFERRED).draw(RECORD)
+    assert result["ok"] is True and [b["index"] for b in result["boards"]] == [0, 2]
+    repair = next(user for _, user in fake.prompts if "was refused" in user)
+    assert "'hive-cell' is not on the STAGE; use one of: bee" in repair
+
+
+def test_a_stage_without_the_part_says_to_leave_the_piece_out():
+    problems = BoardCheck(REFS, stage={"nodes": []}, ref="x-stage").problems(SHOWN)
+    assert problems == ["board.beats[0].piece.node: 'bee' is not on the STAGE, which has no nodes: leave this piece out"]
+
+
+def test_a_refused_stage_fails_the_boards_instead_of_drawing_without_it():
+    fake = _Writer({"stage": [{"nodes": "x"}, {"nodes": "x"}]})
+    result = BoardWriter(fake.ports(), STAGED).draw(RECORD)
+    assert result["ok"] is False and result["error"].startswith("the stage was refused")
+    assert not any(system.startswith("<explainer_board>") for system, _ in fake.prompts)
+
+
+def test_fixes_send_the_drawn_board_back_with_what_did_not_fit():
+    scenes = [{"narration": "Bees pollinate.", "board": GOOD}, {"narration": ""}, {"narration": "Crops."}]
+    record = {**RECORD, "story": {**RECORD["story"], "scenes": scenes}}
+    fake = _Writer({1: [GOOD]})
+    tight = "board.beats[0].piece.text: too long to read on a vertical frame; keep it under 20 characters"
+    result = BoardWriter(fake.ports(), KIT).draw(record, targets=[0], fixes={0: [tight]})
+    assert result["ok"] is True
+    (_, user), = fake.prompts
+    assert "was refused" in user and tight in user and json.dumps(GOOD) in user
+
+
+def test_a_fix_the_writer_cannot_make_keeps_the_board_it_drew():
+    scenes = [{"narration": "Bees pollinate.", "board": GOOD}, {"narration": ""}, {"narration": "Crops."}]
+    record = {**RECORD, "story": {**RECORD["story"], "scenes": scenes}}
+    fake = _Writer({1: [BAD, BAD]})
+    result = BoardWriter(fake.ports(), KIT).draw(record, targets=[0], fixes={0: ["too long"]})
+    assert result["boards"] == [{"index": 0, "board": GOOD}] and result["errors"] == []

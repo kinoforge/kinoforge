@@ -14,7 +14,7 @@ from kinoforge.contract import AITask, ModelRef
 from kinoforge.observ import with_context
 from kinoforge.segments.story.agent import clean_text
 from kinoforge.segments.story.explainer.check import BoardCheck
-from kinoforge.segments.story.explainer.stage import StageWriter
+from kinoforge.segments.story.explainer.stage import StageRefused, StageWriter
 from kinoforge.segments.story.languages import language_name
 from kinoforge.segments.story.ports import StoryPorts
 
@@ -77,7 +77,8 @@ class BoardWriter:
     def __init__(self, ports: StoryPorts, kit: Mapping) -> None:
         self.ports = ports
         self.catalog = kit.get("catalog") or ""
-        self.check = BoardCheck(kit.get("schema") or {})
+        self.schema = kit.get("schema") or {}
+        self.ref = str((kit.get("stage") or {}).get("ref") or "")
         self.stages = StageWriter(ports, kit)
 
     def draw(
@@ -86,6 +87,7 @@ class BoardWriter:
         targets: list[int] | None = None,
         route: ModelRef | None = None,
         max_tokens: int = 0,
+        fixes: Mapping[int, list[str]] | None = None,
     ) -> dict:
         story = rec.get("story") or {}
         scenes = story.get("scenes") or []
@@ -95,7 +97,12 @@ class BoardWriter:
             return {"ok": False, "error": "no narrated scenes to draw"}
         if not self.catalog:
             return {"ok": False, "error": "the explainer kit is missing"}
-        stage = self.stages.stage(rec, route, max_tokens)
+        try:
+            stage = self.stages.stage(rec, route, max_tokens)
+        except StageRefused as error:
+            return {"ok": False, "error": str(error)}
+        check = BoardCheck(self.schema, stage=stage, ref=self.ref)
+        fixes = fixes or {}
         language = str((rec.get("input") or {}).get("language") or "")
         system = self.ports.prompt(
             PROMPT_KEY,
@@ -107,7 +114,10 @@ class BoardWriter:
         shared = KitCatalog.shared(self.catalog, stage)
         with ThreadPoolExecutor(max_workers=min(self.WORKERS, len(wanted))) as pool:
             jobs = [
-                pool.submit(with_context(self._scene), system, story, shared, i, route, max_tokens)
+                pool.submit(
+                    with_context(self._scene), system, story, shared, i, route, max_tokens,
+                    check, fixes.get(i) or [],
+                )
                 for i in wanted
             ]
             drawn = [job.result() for job in jobs]
@@ -125,12 +135,16 @@ class BoardWriter:
         index: int,
         route: ModelRef | None,
         max_tokens: int,
+        check: BoardCheck,
+        fix: list[str],
     ) -> Drawn:
         brief = self._brief(story, index, shared)
-        board: object = None
-        problems: list[str] = []
+        drawn = (story.get("scenes") or [])[index].get("board") if fix else None
+        board: object = drawn
+        problems: list[str] = list(fix)
         for attempt in range(2):
-            prompt = brief if attempt == 0 else self.check.repair(brief, board, problems)
+            fresh = attempt == 0 and not (fix and board)
+            prompt = brief if fresh else check.repair(brief, board, problems)
             try:
                 answer = self.ports.complete_json(
                     AITask.STORY_BOARD, system, prompt, route=route or ModelRef(),
@@ -141,11 +155,15 @@ class BoardWriter:
                 board, problems = None, [f"the answer was not valid JSON ({error})"]
                 continue
             except Exception as error:
+                if isinstance(drawn, dict):
+                    return Drawn(index, drawn)
                 return Drawn(index, None, f"the board writer failed: {error}")
             board = answer.get("board", answer) if isinstance(answer, dict) else answer
-            problems = self.check.problems(board)
+            problems = check.problems(board)
             if not problems:
                 return Drawn(index, board if isinstance(board, dict) else None)
+        if isinstance(drawn, dict):
+            return Drawn(index, drawn)
         return Drawn(index, None, f"the board was refused: {problems[0]}")
 
     @staticmethod

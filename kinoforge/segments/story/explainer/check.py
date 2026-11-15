@@ -4,12 +4,41 @@ they are, and the prompt that sends them back."""
 import json
 from collections.abc import Iterable, Mapping
 
-from jsonschema import Draft202012Validator, ValidationError
+from jsonschema import Draft202012Validator, ValidationError, validators
+
+
+class StageIds:
+    SHOWN = 24
+
+    def __init__(self, stage: Mapping) -> None:
+        self.ids = {
+            str(part): [str(item["id"]) for item in items if isinstance(item, Mapping) and item.get("id")]
+            for part, items in stage.items()
+            if isinstance(items, list)
+        }
+
+    def keyword(self, validator, part, instance, schema):
+        if not isinstance(instance, str):
+            return
+        known = self.ids.get(str(part)) or []
+        if instance in known:
+            return
+        if not known:
+            yield ValidationError(f"{instance!r} is not on the STAGE, which has no {part}: leave this piece out")
+            return
+        yield ValidationError(
+            f"{instance!r} is not on the STAGE; use one of: {', '.join(known[: self.SHOWN])}"
+        )
 
 
 class BoardCheck:
-    def __init__(self, schema: Mapping, name: str = "board") -> None:
-        self._validator = Draft202012Validator(dict(schema))
+    def __init__(
+        self, schema: Mapping, name: str = "board", stage: Mapping | None = None, ref: str = ""
+    ) -> None:
+        kind = Draft202012Validator
+        if ref and isinstance(stage, Mapping):
+            kind = validators.extend(Draft202012Validator, {ref: StageIds(stage).keyword})
+        self._validator = kind(dict(schema))
         self.name = name
 
     def problems(self, answer: object, limit: int = 8) -> list[str]:

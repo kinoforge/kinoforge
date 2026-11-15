@@ -92,7 +92,8 @@ class StoryOperationRequest(OperationRequest):
         default_factory=dict,
         description=(
             "Operation input: project/story, scene index, language, or instructions; "
-            "draw_boards also takes the explainer kit ({catalog, schema}) and scene targets."
+            "draw_boards also takes the explainer kit ({catalog, schema}), scene targets and "
+            "fixes ({scene index: problems}) that send a drawn board back to its writer."
         ),
     )
     agent: dict[str, Any] = Field(default_factory=dict)

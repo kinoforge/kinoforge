@@ -16,6 +16,9 @@ from kinoforge.segments.story.ports import StoryPorts
 PROMPT_KEY = "explainer_stage"
 
 
+class StageRefused(RuntimeError): ...
+
+
 class StageWriter:
     TEMPERATURE = 0.4
 
@@ -65,7 +68,7 @@ class StageWriter:
             problems = self.check.problems(drawn)
             if not problems and isinstance(drawn, dict):
                 return drawn
-        return None
+        raise StageRefused(f"the stage was refused: {problems[0] if problems else 'not an object'}")
 
     @staticmethod
     def _brief(story: dict) -> str:
