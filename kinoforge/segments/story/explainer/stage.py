@@ -28,6 +28,15 @@ class StageWriter:
         self.catalog = str(stage.get("catalog") or "")
         self.check = BoardCheck(stage.get("schema") or {}, "stage") if self.catalog else None
 
+    def write(self, rec: dict, route: ModelRef | None, max_tokens: int) -> dict:
+        try:
+            stage = self.stage(rec, route, max_tokens)
+        except StageRefused as error:
+            return {"ok": False, "error": str(error)}
+        if stage is None:
+            return {"ok": False, "error": "the explainer kit or the stage prompt is missing"}
+        return {"ok": True, "stage": stage}
+
     def stage(self, rec: dict, route: ModelRef | None, max_tokens: int) -> dict | None:
         """The story's stage when it still meets the kit, else a new one; None without one."""
         if self.check is None:

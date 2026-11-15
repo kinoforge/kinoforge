@@ -3,6 +3,7 @@ import threading
 
 from kinoforge.definitions.models import DefinitionError
 from kinoforge.segments.story.explainer.boards import BoardCheck, BoardWriter
+from kinoforge.segments.story.explainer.stage import StageWriter
 from kinoforge.segments.story.ports import StoryPorts
 
 SCHEMA = {
@@ -282,3 +283,24 @@ def test_a_fix_the_writer_cannot_make_keeps_the_board_it_drew():
     fake = _Writer({1: [BAD, BAD]})
     result = BoardWriter(fake.ports(), KIT).draw(record, targets=[0], fixes={0: ["too long"]})
     assert result["boards"] == [{"index": 0, "board": GOOD}] and result["errors"] == []
+
+
+def test_write_stage_returns_the_stage_alone():
+    fake = _Writer({"stage": [STAGE]})
+    assert StageWriter(fake.ports(), STAGED).write(RECORD, None, 0) == {"ok": True, "stage": STAGE}
+    assert not any(system.startswith("<explainer_board>") for system, _ in fake.prompts)
+
+
+def test_write_stage_fails_without_a_stage_prompt():
+    fake = _Writer({}, missing={"explainer_stage"})
+    result = StageWriter(fake.ports(), STAGED).write(RECORD, None, 0)
+    assert result["ok"] is False and "stage prompt" in result["error"]
+
+
+def test_boards_list_the_store_items_the_caller_resolved_for_the_stage():
+    stage = {"nodes": [], "surfaces": [], "icons": ["car", "postgresql", "nope"]}
+    record = {**RECORD, "story": {**RECORD["story"], "stage": stage, "elements": {"postgresql": {}}}}
+    fake = _Writer({1: [GOOD], 3: [GOOD]})
+    BoardWriter(fake.ports(), {**STAGED, "catalog": PARTED}).draw(record)
+    systems = {system for system, _ in fake.prompts if system.startswith("<explainer_board>")}
+    assert systems == {"<explainer_board>PIECES: title\nICONS: car, postgresql"}

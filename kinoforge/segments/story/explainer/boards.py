@@ -6,7 +6,7 @@ board names the same diagram nodes, code files and road side, and reads only the
 catalog the stage says this video draws."""
 
 import json
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
@@ -36,7 +36,7 @@ class KitCatalog:
     SURFACES = "surfaces"
 
     @staticmethod
-    def text(catalog: object, stage: dict | None) -> str:
+    def text(catalog: object, stage: dict | None, extra: Iterable[str] = ()) -> str:
         if not isinstance(catalog, Mapping):
             return str(catalog or "")
         stage = stage or {}
@@ -49,10 +49,16 @@ class KitCatalog:
                  or stage.get(str(part.get("part"))))
         ]
         lists = []
+        extra = set(extra)
         for item in KitCatalog._lists(catalog):
             keys = [str(key) for key in item.get("keys") or []]
-            picked = set(stage.get(str(item.get("pick"))) or [])
-            kept = [key for key in keys if key in picked] or keys
+            picks = [str(key) for key in stage.get(str(item.get("pick"))) or []]
+            picked = set(picks)
+            known = set(keys)
+            kept = [key for key in keys if key in picked] + [
+                key for key in dict.fromkeys(picks) if key in extra and key not in known
+            ]
+            kept = kept or keys
             lists.append(f"{item.get('name')}: {', '.join(kept)}")
         return "\n".join([str(catalog.get("board") or ""), *surfaces, *lists])
 
@@ -106,7 +112,7 @@ class BoardWriter:
         language = str((rec.get("input") or {}).get("language") or "")
         system = self.ports.prompt(
             PROMPT_KEY,
-            catalog=KitCatalog.text(self.catalog, stage),
+            catalog=KitCatalog.text(self.catalog, stage, (story.get("elements") or {}).keys()),
             language_rule=self.ports.language_rule(
                 "board text", language_name(language, self.ports.languages)
             ),

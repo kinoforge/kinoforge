@@ -77,6 +77,7 @@ class StoryOperation(StrEnum):
     TRANSLATE = "translate"
     DIRECT_SHOTS = "direct_shots"
     DRAW_BOARDS = "draw_boards"
+    WRITE_STAGE = "write_stage"
     SUGGEST_FIELD = "suggest_field"
 
 
@@ -93,7 +94,8 @@ class StoryOperationRequest(OperationRequest):
         description=(
             "Operation input: project/story, scene index, language, or instructions; "
             "draw_boards also takes the explainer kit ({catalog, schema}), scene targets and "
-            "fixes ({scene index: problems}) that send a drawn board back to its writer."
+            "fixes ({scene index: problems}) that send a drawn board back to its writer; "
+            "write_stage takes the record and the kit and returns the video's stage alone."
         ),
     )
     agent: dict[str, Any] = Field(default_factory=dict)

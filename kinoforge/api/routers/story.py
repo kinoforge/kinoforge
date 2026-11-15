@@ -54,8 +54,8 @@ def write_story(request: StoryWriteRequest):
     summary="Edit, translate, direct or draw an existing story",
     description=(
         "Runs one stateless Story operation from frozen definitions: rewrite_scene, "
-        "rewrite_characters, translate, direct_shots, or draw_boards (an explainer board per "
-        "scene). Caller persists returned changes."
+        "rewrite_characters, translate, direct_shots, write_stage (an explainer's stage) or "
+        "draw_boards (an explainer board per scene). Caller persists returned changes."
     ),
     response_model=StoryOperationResponse,
     responses=Operations.RESPONSES,
