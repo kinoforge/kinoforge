@@ -6,20 +6,14 @@ stage, or a caller without the stage prompt, draws boards without one."""
 import json
 from collections.abc import Mapping
 
-from kinoforge.contract import AITask, ModelRef
+from kinoforge.contract import ModelRef
 from kinoforge.definitions.models import DefinitionError
 from kinoforge.segments.story.agent import clean_text
-from kinoforge.segments.story.explainer.check import BoardCheck
+from kinoforge.segments.story.explainer.check import BoardCheck, KitAsk, KitRefused
 from kinoforge.segments.story.languages import language_name
 from kinoforge.segments.story.ports import StoryPorts
 
 PROMPT_KEY = "explainer_stage"
-
-
-class StageRefused(RuntimeError):
-    def __init__(self, message: str, answer: object = None) -> None:
-        super().__init__(message)
-        self.answer = answer
 
 
 class StageWriter:
@@ -36,7 +30,7 @@ class StageWriter:
     ) -> dict:
         try:
             stage = self.stage(rec, route, max_tokens, tries)
-        except StageRefused as error:
+        except KitRefused as error:
             return {"ok": False, "error": str(error), **BoardCheck.refused(error.answer)}
         if stage is None:
             return {"ok": False, "error": "the explainer kit or the stage prompt is missing"}
@@ -64,28 +58,9 @@ class StageWriter:
         except DefinitionError:
             return None
         brief = self._brief(rec)
-        drawn: object = None
-        problems: list[str] = []
-        for attempt in range(max(1, tries)):
-            prompt = brief if attempt == 0 else self.check.repair(brief, drawn, problems)
-            try:
-                answer = self.ports.complete_json(
-                    AITask.STORY_BOARD,
-                    system,
-                    prompt,
-                    route=route or ModelRef(),
-                    temperature=self.TEMPERATURE,
-                    max_tokens=max_tokens,
-                )
-            except json.JSONDecodeError as error:
-                drawn, problems = None, [f"the answer was not valid JSON ({error})"]
-                continue
-            drawn = answer.get("stage", answer) if isinstance(answer, dict) else answer
-            problems = self.check.problems(drawn)
-            if not problems and isinstance(drawn, dict):
-                return drawn
-        refused = problems[0] if problems else "not an object"
-        raise StageRefused(f"the stage was refused: {refused}", drawn)
+        return KitAsk(self.ports, self.check, self.TEMPERATURE).ask(
+            system, brief, route, max_tokens, tries
+        )
 
     @staticmethod
     def _brief(rec: dict) -> str:

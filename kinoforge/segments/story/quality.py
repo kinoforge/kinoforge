@@ -46,6 +46,17 @@ class StoryQualityGate:
                 f"{self._scenes(silent)} {'has' if len(silent) == 1 else 'have'} no narration"
             )
 
+        if self._ctx.get("spoken"):
+            unspoken = [
+                str(i + 1)
+                for i, scene in enumerate(scenes)
+                if not (scene.get("speaker") or "").strip()
+            ]
+            if unspoken:
+                blocking.append(
+                    f"{self._scenes(unspoken)} {'has' if len(unspoken) == 1 else 'have'} no speaker from the cast"
+                )
+
         if not (self._story.get("logline") or "").strip():
             advisory.append("logline is missing")
         if not (self._story.get("style") or "").strip():

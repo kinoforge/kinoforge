@@ -2,9 +2,12 @@
 they are, and the prompt that sends them back."""
 
 import json
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 
 from jsonschema import Draft202012Validator, ValidationError, validators
+
+from kinoforge.contract import AITask, ModelRef
+from kinoforge.segments.story.ports import StoryPorts
 
 
 class StageIds:
@@ -109,3 +112,50 @@ class BoardCheck:
     def _where(self, path: Iterable[object]) -> str:
         parts = [f"[{part}]" if isinstance(part, int) else f".{part}" for part in path]
         return self.name + "".join(parts)
+
+
+class KitRefused(RuntimeError):
+    def __init__(self, message: str, answer: object = None) -> None:
+        super().__init__(message)
+        self.answer = answer
+
+
+class KitAsk:
+    def __init__(self, ports: StoryPorts, check: BoardCheck, temperature: float) -> None:
+        self.ports = ports
+        self.check = check
+        self.temperature = temperature
+
+    def ask(
+        self,
+        system: str,
+        brief: str,
+        route: ModelRef | None,
+        max_tokens: int,
+        tries: int,
+        more: Callable[[dict], list[str]] = lambda _answer: [],
+    ) -> dict:
+        drawn: object = None
+        problems: list[str] = []
+        for attempt in range(max(1, tries)):
+            prompt = brief if attempt == 0 else self.check.repair(brief, drawn, problems)
+            try:
+                answer = self.ports.complete_json(
+                    AITask.STORY_BOARD,
+                    system,
+                    prompt,
+                    route=route or ModelRef(),
+                    temperature=self.temperature,
+                    max_tokens=max_tokens,
+                )
+            except json.JSONDecodeError as error:
+                drawn, problems = None, [f"the answer was not valid JSON ({error})"]
+                continue
+            drawn = answer.get(self.check.name, answer) if isinstance(answer, dict) else answer
+            problems = self.check.problems(drawn)
+            if not problems and isinstance(drawn, dict):
+                problems = more(drawn)
+            if not problems and isinstance(drawn, dict):
+                return drawn
+        refused = problems[0] if problems else "not an object"
+        raise KitRefused(f"the {self.check.name} was refused: {refused}", drawn)

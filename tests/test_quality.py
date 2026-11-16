@@ -61,3 +61,12 @@ def test_quoted_text_prompt_is_advisory():
     story["scenes"][0]["prompt"] = 'a sign saying "OPEN"'
     _, advisory = validate_story(story, {"scene_count": 1})
     assert any("may render on-screen text" in a for a in advisory)
+
+
+def test_a_cast_scene_nobody_in_the_cast_says_is_blocking():
+    story = _clean_story()
+    blocking, _ = validate_story(story, {"scene_count": 1, "spoken": True})
+    assert blocking == ["scene 1 has no speaker from the cast"]
+    story["scenes"][0]["speaker"] = "Mia"
+    blocking, _ = validate_story(story, {"scene_count": 1, "spoken": True})
+    assert blocking == []

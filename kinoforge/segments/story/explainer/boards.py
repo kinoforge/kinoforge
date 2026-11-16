@@ -13,8 +13,8 @@ from dataclasses import dataclass
 from kinoforge.contract import AITask, ModelRef
 from kinoforge.observ import with_context
 from kinoforge.segments.story.agent import clean_text
-from kinoforge.segments.story.explainer.check import BoardCheck
-from kinoforge.segments.story.explainer.stage import StageRefused, StageWriter
+from kinoforge.segments.story.explainer.check import BoardCheck, KitRefused
+from kinoforge.segments.story.explainer.stage import StageWriter
 from kinoforge.segments.story.languages import language_name
 from kinoforge.segments.story.ports import StoryPorts
 
@@ -107,7 +107,7 @@ class BoardWriter:
             return {"ok": False, "error": "the explainer kit is missing"}
         try:
             stage = self.stages.stage(rec, route, max_tokens, tries)
-        except StageRefused as error:
+        except KitRefused as error:
             return {"ok": False, "error": str(error), **BoardCheck.refused(error.answer)}
         check = BoardCheck(self.schema, stage=stage, ref=self.ref)
         fixes = fixes or {}

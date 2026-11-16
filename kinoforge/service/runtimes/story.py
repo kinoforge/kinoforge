@@ -21,6 +21,8 @@ from kinoforge.segments.story.agent import Screenwriter, StoryBrief
 from kinoforge.segments.story.explainer.boards import BoardWriter
 from kinoforge.segments.story.explainer.check import BoardCheck
 from kinoforge.segments.story.explainer.elements import ElementDrawer
+from kinoforge.segments.story.explainer.lines import LineDirector
+from kinoforge.segments.story.explainer.set import SetWriter
 from kinoforge.segments.story.explainer.stage import StageWriter
 from kinoforge.segments.story.operations import StoryOperations
 from kinoforge.segments.story.ports import StoryPorts
@@ -112,7 +114,7 @@ class StoryRuntime:
         ctx = Screenwriter(ports).build_context(StoryBrief.from_mapping(fields))
         # Caller-set flags the writer reads (e.g. require_motion, so Video Mode always gets
         # clips) ride through the request's open context.
-        for flag in ("require_motion", "pictured"):
+        for flag in ("require_motion", "pictured", "spoken"):
             if flag in fields:
                 ctx[flag] = bool(fields[flag])
         return ctx
@@ -171,6 +173,25 @@ class StoryRuntime:
             case StoryOperation.WRITE_STAGE:
                 return StageWriter(operations.ports, dict(payload.get("kit") or {})).write(
                     dict(payload.get("record") or {}), route, int(budgets.get("board") or 0), tries
+                )
+            case StoryOperation.WRITE_SET:
+                return SetWriter(operations.ports, dict(payload.get("kit") or {})).write(
+                    dict(payload.get("record") or {}),
+                    str(payload.get("presenter") or ""),
+                    route,
+                    int(budgets.get("board") or 0),
+                    tries,
+                )
+            case StoryOperation.DIRECT_LINES:
+                draws = payload.get("draws")
+                return LineDirector(operations.ports, dict(payload.get("kit") or {})).direct(
+                    dict(payload.get("record") or {}),
+                    dict(payload.get("set") or {}),
+                    str(payload.get("presenter") or ""),
+                    route,
+                    int(budgets.get("board") or 0),
+                    draws if isinstance(draws, int) and not isinstance(draws, bool) else 0,
+                    tries,
                 )
             case StoryOperation.DRAW_ELEMENTS:
                 wants = payload.get("wants")
