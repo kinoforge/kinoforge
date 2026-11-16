@@ -342,3 +342,57 @@ def test_boards_list_the_store_items_the_caller_resolved_for_the_stage():
     BoardWriter(fake.ports(), {**STAGED, "catalog": PARTED}).draw(record)
     systems = {system for system, _ in fake.prompts if system.startswith("<explainer_board>")}
     assert systems == {"<explainer_board>PIECES: title\nICONS: car, postgresql"}
+
+
+FILED_SCHEMA = {
+    **STAGE_SCHEMA,
+    "properties": {
+        **STAGE_SCHEMA["properties"],
+        "files": {
+            "type": "array",
+            "maxItems": 2,
+            "items": {
+                "type": "object",
+                "properties": {"lines": {"type": "array", "maxItems": 2}},
+            },
+        },
+    },
+}
+FILED = {**KIT, "stage": {"catalog": "STAGE: nodes, files", "schema": FILED_SCHEMA}}
+COMPOSE = {
+    "id": "compose",
+    "name": "docker-compose.yml",
+    "lang": "yaml",
+    "lines": ["services:", "  web:", "    image: nginx:1.27"],
+}
+
+
+def _given(story=None):
+    return {
+        **RECORD,
+        "input": {"language": "", "files": [COMPOSE]},
+        "story": {**RECORD["story"], **(story or {})},
+    }
+
+
+def test_given_files_go_on_the_stage_exactly_as_given_past_the_writers_limits():
+    written = {"nodes": [], "files": [{"id": "compose", "lines": ["web: x"]}, {"id": "app", "lines": ["a"]}]}
+    fake = _Writer({"stage": [written]})
+    result = StageWriter(fake.ports(), FILED).write(_given(), None, 0)
+    assert result["stage"]["files"] == [COMPOSE, {"id": "app", "lines": ["a"]}]
+    assert json.loads(fake.prompts[0][1])["given_files"] == [COMPOSE]
+
+
+def test_a_kept_stage_with_given_files_is_not_written_again():
+    kept = {"nodes": [], "files": [COMPOSE]}
+    fake = _Writer({})
+    result = StageWriter(fake.ports(), FILED).write(_given({"stage": kept}), None, 0)
+    assert result == {"ok": True, "stage": kept}
+    assert not fake.prompts
+
+
+def test_without_given_files_the_stage_is_the_writers():
+    fake = _Writer({"stage": [STAGE]})
+    result = StageWriter(fake.ports(), FILED).write(RECORD, None, 0)
+    assert result["stage"] == STAGE
+    assert json.loads(fake.prompts[0][1])["given_files"] == []

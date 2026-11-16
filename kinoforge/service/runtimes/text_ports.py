@@ -11,8 +11,9 @@ from kinoforge.contract import AITask, Meter, ModelRef, no_meter
 from kinoforge.definitions import DefinitionRenderer
 from kinoforge.definitions.models import DefinitionKind
 from kinoforge.inference import InfrelayClient
+from kinoforge.inference.infrelay import InfrelayError
 from kinoforge.observ import active
-from kinoforge.segments.story.ports import StoryPorts
+from kinoforge.segments.story.ports import Chat, StoryPorts
 
 _TRAILING_COMMA = re.compile(r",\s*([}\]])")
 
@@ -44,8 +45,29 @@ class InfrelayTextPorts:
             complete=self.complete, complete_json=self.complete_json,
             parse_json=self.parse_json, prompt=self.prompt, contract=self.contract,
             language_rule=self.language_rule, story_budget=self.story_budget,
-            meter=self._meter, languages=self._languages,
+            meter=self._meter, languages=self._languages, open_chat=self.open_chat,
         )
+
+    def open_chat(self, system: str) -> Chat:
+        conversation = self._infrelay.open_conversation(system)
+        active().debug(f"{self._label} conversation opened", conversation=conversation)
+
+        def ask(
+            task: AITask, user: str, *, route: ModelRef, temperature: float, max_tokens: int
+        ) -> dict[str, Any]:
+            text, _ = self._infrelay.text(
+                task, route, "", user, temperature=temperature, max_tokens=max_tokens,
+                conversation=conversation,
+            )
+            return self.parse_json(text)
+
+        def close() -> None:
+            try:
+                self._infrelay.close_conversation(conversation)
+            except InfrelayError as exc:
+                active().warning(f"{self._label} conversation not closed", error=str(exc))
+
+        return Chat(ask=ask, close=close)
 
     def complete(
         self, task: AITask, system: str, user: str, *,

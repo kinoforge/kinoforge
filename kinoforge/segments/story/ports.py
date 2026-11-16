@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -41,6 +41,23 @@ class StoryBudget(Protocol):
     def __call__(self, stage_override: object = None) -> int: ...
 
 
+class ChatTurn(Protocol):
+    def __call__(
+        self, task: AITask, user: str, *,
+        route: ModelRef, temperature: float, max_tokens: int,
+    ) -> dict: ...
+
+
+@dataclass(frozen=True)
+class Chat:
+    ask: ChatTurn
+    close: Callable[[], None]
+
+
+class OpenChat(Protocol):
+    def __call__(self, system: str) -> Chat: ...
+
+
 @dataclass(frozen=True)
 class StoryPorts:
     complete: Complete
@@ -53,3 +70,4 @@ class StoryPorts:
     meter: Meter = no_meter
     # The caller's languages, code -> what the writer is told; empty uses the engine's own.
     languages: Mapping[str, str] = field(default_factory=dict)
+    open_chat: OpenChat | None = None

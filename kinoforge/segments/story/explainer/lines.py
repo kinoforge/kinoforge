@@ -7,7 +7,7 @@ from kinoforge.segments.story.agent import clean_text
 from kinoforge.segments.story.explainer.check import BoardCheck, KitAsk, KitRefused
 from kinoforge.segments.story.explainer.set import CAST
 from kinoforge.segments.story.languages import language_name
-from kinoforge.segments.story.ports import StoryPorts
+from kinoforge.segments.story.ports import Chat, StoryPorts
 
 PROMPT_KEY = "explainer_lines"
 
@@ -17,6 +17,7 @@ class LineDirector:
     OFF = "off"
     HOME = "center"
     MOST_ACTS = 4
+    FILM = "\n\nTHE FILM\n"
 
     def __init__(self, ports: StoryPorts, kit: Mapping) -> None:
         part = kit.get("direction") or {}
@@ -35,6 +36,7 @@ class LineDirector:
         max_tokens: int,
         draws: int,
         tries: int = BoardCheck.TRIES,
+        per_call: int = 0,
     ) -> dict:
         if not self.catalog:
             return {"ok": False, "error": "the skit kit is missing"}
@@ -56,55 +58,88 @@ class LineDirector:
         except DefinitionError:
             return {"ok": False, "error": "the lines prompt is missing"}
         check = BoardCheck(self.schema, "direction", stage=drawn_set, ref=self.ref)
-        brief = json.dumps(
-            {
-                "topic": clean_text(story.get("logline")) or clean_text(story.get("title")),
-                "brief": clean_text((rec.get("input") or {}).get("description")),
-                "presenter": presenter,
-                "draws": self.rule(presenter, draws),
-                "set": drawn_set,
-                "script": [
-                    {
-                        "line": i + 1,
-                        "speaker": speakers[i],
-                        "text": clean_text(scene.get("narration")),
-                    }
-                    for i, scene in enumerate(scenes)
-                ],
-            },
-            ensure_ascii=False,
-        )
+        film = {
+            "topic": clean_text(story.get("logline")) or clean_text(story.get("title")),
+            "brief": clean_text((rec.get("input") or {}).get("description")),
+            "presenter": presenter,
+            "draws": self.rule(presenter, draws),
+            "set": drawn_set,
+            "script": [
+                {"line": i + 1, "speaker": speakers[i], "text": clean_text(scene.get("narration"))}
+                for i, scene in enumerate(scenes)
+            ],
+        }
+        ask = KitAsk(self.ports, check, self.TEMPERATURE)
         errors: list[str] = []
-        try:
-            answer: object = KitAsk(self.ports, check, self.TEMPERATURE).ask(
-                system, brief, route, max_tokens, tries
-            )
-        except KitRefused as error:
-            answer = error.answer
-            errors.append(str(error))
-        given = answer.get("lines") if isinstance(answer, Mapping) else None
-        if not isinstance(given, list):
+        kept: dict[int, dict] = {}
+        chunks = self.chunks(len(scenes), per_call)
+        if len(chunks) == 1:
+            brief = json.dumps(film, ensure_ascii=False)
+            answer = self.answer(ask, system, brief, route, max_tokens, tries, errors)
+            given = [self.given(answer, chunks[0], check, kept, errors)]
+        else:
+            chat = self.ports.open_chat(system + self.FILM + json.dumps(film, ensure_ascii=False))
+            try:
+                given = []
+                for first, last in chunks:
+                    turn = json.dumps({"direct": {"from": first, "to": last}})
+                    answer = self.answer(ask, "", turn, route, max_tokens, tries, errors, chat)
+                    given.append(self.given(answer, (first, last), check, kept, errors))
+            finally:
+                chat.close()
+        if not any(given):
             return {
                 "ok": False,
                 "error": errors[0] if errors else "no lines came back",
                 **BoardCheck.refused(answer),
             }
-        kept: dict[int, dict] = {}
-        for item in given:
+        lines = [{**kept.get(i + 1, {}), "speaker": speakers[i]} for i in range(len(scenes))]
+        lines = self.staged(self.capped(lines, presenter, draws), drawn_set)
+        return {"ok": True, "lines": lines, "errors": errors}
+
+    def chunks(self, count: int, per_call: int) -> list[tuple[int, int]]:
+        if per_call <= 0 or count <= per_call or self.ports.open_chat is None:
+            return [(1, count)]
+        return [(first, min(count, first + per_call - 1)) for first in range(1, count + 1, per_call)]
+
+    @staticmethod
+    def answer(
+        ask: KitAsk,
+        system: str,
+        brief: str,
+        route: ModelRef | None,
+        max_tokens: int,
+        tries: int,
+        errors: list[str],
+        chat: Chat | None = None,
+    ) -> object:
+        try:
+            return ask.ask(system, brief, route, max_tokens, tries, chat=chat)
+        except KitRefused as error:
+            errors.append(str(error))
+            return error.answer
+
+    @staticmethod
+    def given(
+        answer: object,
+        span: tuple[int, int],
+        check: BoardCheck,
+        kept: dict[int, dict],
+        errors: list[str],
+    ) -> bool:
+        items = answer.get("lines") if isinstance(answer, Mapping) else None
+        if not isinstance(items, list):
+            return False
+        first, last = span
+        for item in items:
             number = item.get("line") if isinstance(item, Mapping) else None
-            if (
-                not isinstance(number, int)
-                or isinstance(number, bool)
-                or not 1 <= number <= len(scenes)
-            ):
+            if not isinstance(number, int) or isinstance(number, bool) or not first <= number <= last:
                 continue
             if problems := check.problems({"lines": [item]}):
                 errors.append(f"line {number}: {problems[0]}")
                 continue
             kept.setdefault(number, {key: value for key, value in item.items() if key != "line"})
-        lines = [{**kept.get(i + 1, {}), "speaker": speakers[i]} for i in range(len(scenes))]
-        lines = self.staged(self.capped(lines, presenter, draws), drawn_set)
-        return {"ok": True, "lines": lines, "errors": errors}
+        return True
 
     @classmethod
     def staged(cls, lines: list[dict], drawn_set: Mapping) -> list[dict]:

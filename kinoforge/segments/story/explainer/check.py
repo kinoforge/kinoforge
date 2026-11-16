@@ -7,7 +7,7 @@ from collections.abc import Callable, Iterable, Mapping
 from jsonschema import Draft202012Validator, ValidationError, validators
 
 from kinoforge.contract import AITask, ModelRef
-from kinoforge.segments.story.ports import StoryPorts
+from kinoforge.segments.story.ports import Chat, StoryPorts
 
 
 class StageIds:
@@ -109,6 +109,13 @@ class BoardCheck:
             f"Return the corrected {self.name} only, as STRICT JSON."
         )
 
+    def follow_up(self, problems: list[str]) -> str:
+        listed = "\n".join(f"- {problem}" for problem in problems)
+        return (
+            f"Your {self.name} was refused:\n{listed}\n\n"
+            f"Return the corrected {self.name} only, as STRICT JSON."
+        )
+
     def _where(self, path: Iterable[object]) -> str:
         parts = [f"[{part}]" if isinstance(part, int) else f".{part}" for part in path]
         return self.name + "".join(parts)
@@ -134,20 +141,30 @@ class KitAsk:
         max_tokens: int,
         tries: int,
         more: Callable[[dict], list[str]] = lambda _answer: [],
+        chat: Chat | None = None,
     ) -> dict:
         drawn: object = None
         problems: list[str] = []
         for attempt in range(max(1, tries)):
-            prompt = brief if attempt == 0 else self.check.repair(brief, drawn, problems)
             try:
-                answer = self.ports.complete_json(
-                    AITask.STORY_BOARD,
-                    system,
-                    prompt,
-                    route=route or ModelRef(),
-                    temperature=self.temperature,
-                    max_tokens=max_tokens,
-                )
+                if chat is None:
+                    prompt = brief if attempt == 0 else self.check.repair(brief, drawn, problems)
+                    answer = self.ports.complete_json(
+                        AITask.STORY_BOARD,
+                        system,
+                        prompt,
+                        route=route or ModelRef(),
+                        temperature=self.temperature,
+                        max_tokens=max_tokens,
+                    )
+                else:
+                    answer = chat.ask(
+                        AITask.STORY_BOARD,
+                        brief if attempt == 0 else self.check.follow_up(problems),
+                        route=route or ModelRef(),
+                        temperature=self.temperature,
+                        max_tokens=max_tokens,
+                    )
             except json.JSONDecodeError as error:
                 drawn, problems = None, [f"the answer was not valid JSON ({error})"]
                 continue

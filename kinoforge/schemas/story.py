@@ -102,8 +102,9 @@ class StoryOperationRequest(OperationRequest):
             "draw_elements takes wants ([{word, for}]), the topic and the kit's element format "
             "({schema, limits}) and returns a checked shape per picture; "
             "write_set takes the record, the skit kit and the presenter (stick or cast) and returns "
-            "the set; direct_lines also takes that set and draws (how many lines may draw) and "
-            "returns one checked line per scene."
+            "the set; direct_lines also takes that set, draws (how many lines may draw) and "
+            "per_call (lines directed per turn of one conversation, 0 for one call) and returns "
+            "one checked line per scene."
         ),
     )
     agent: dict[str, Any] = Field(default_factory=dict)

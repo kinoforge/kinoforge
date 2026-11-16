@@ -39,6 +39,9 @@ class InfrelayClient:
     VIDEO_SECONDS = 2 * 3600
     # The only links a late answer is read at, so the token goes nowhere else.
     LATE_LINK = "/v1/requests/"
+    CONVERSATIONS = "/v1/conversations"
+    TENANT_HEADER = "X-Infrelay-Tenant"
+    PLATFORM_TENANT = "platform"
 
     def __init__(self, url: str, token: str = "", tenant: str = "") -> None:
         self._url = url.rstrip("/")
@@ -181,12 +184,28 @@ class InfrelayClient:
 
     def text(
         self, task: AITask, ref: ModelRef, system: str, user: str, *, temperature: float,
-        max_tokens: int,
+        max_tokens: int, conversation: str = "",
     ) -> Tuple[str, Dict]:
         """One chat completion: (text, usage). Usage carries model, token counts and
         finish_reason so a stage runner can detect a cut-off answer."""
-        output = self._chat(task, ref, system, user, temperature, max_tokens)["output"]
+        output = self._chat(
+            task, ref, system, user, temperature, max_tokens, conversation
+        )["output"]
         return str(output.get("value") or ""), dict(output.get("meta") or {})
+
+    def open_conversation(self, system: str) -> str:
+        found = self._jobs("POST", self.CONVERSATIONS, body={"system": system},
+                           headers=self._tenant_header())
+        if not found.get("id"):
+            raise InfrelayError("infrelay opened a conversation without an id")
+        return str(found["id"])
+
+    def close_conversation(self, conversation: str) -> None:
+        self._jobs("DELETE", f"{self.CONVERSATIONS}/{conversation}",
+                   headers=self._tenant_header(), answers=False)
+
+    def _tenant_header(self) -> Dict[str, str]:
+        return {self.TENANT_HEADER: self._tenant or self.PLATFORM_TENANT}
 
     def complete(self, task: AITask, ref: ModelRef, prompt: str, *, max_tokens: int,
                  temperature: float, system: str = "") -> Tuple[str, ModelRef]:
@@ -196,9 +215,11 @@ class InfrelayClient:
         return str(result["output"].get("value") or ""), served
 
     def _chat(self, task: AITask, ref: ModelRef, system: str, user: str, temperature: float,
-              max_tokens: int) -> Dict[str, Any]:
-        payload = {"system": system, "user": user,
-                   "temperature": temperature, "max_tokens": max_tokens}
+              max_tokens: int, conversation: str = "") -> Dict[str, Any]:
+        payload: Dict[str, Any] = {"system": system, "user": user,
+                                   "temperature": temperature, "max_tokens": max_tokens}
+        if conversation:
+            payload["conversation"] = conversation
         result = self._infer(task, ref, payload, timeout=300)
         if (result.get("output") or {}).get("type") != "text":
             raise InfrelayError("infrelay text returned unsupported output")
@@ -252,11 +273,13 @@ class InfrelayClient:
         return (stored, b"") if stored else ("", self._bytes(result))
 
     def _jobs(
-        self, method: str, path: str, *, body: Dict[str, Any] | None = None
+        self, method: str, path: str, *, body: Dict[str, Any] | None = None,
+        headers: Dict[str, str] | None = None, answers: bool = True,
     ) -> Dict[str, Any]:
         if not self._url:
             raise InfrelayError("INFRELAY_URL is required")
-        headers = {"Authorization": f"Bearer {self._token}"} if self._token else {}
+        headers = {**({"Authorization": f"Bearer {self._token}"} if self._token else {}),
+                   **(headers or {})}
         try:
             response = self._http.request(method, f"{self._url}{path}", headers=headers,
                                           json=body, timeout=60)
@@ -267,6 +290,8 @@ class InfrelayClient:
             raise failed(
                 f"infrelay job {method} failed ({response.status_code}): {response.text[:300]}"
             )
+        if not answers:
+            return {}
         return self._json(response, f"job {method}")
 
     def _video_payload(self, prompt: str, spec: VideoSpec) -> Dict[str, Any]:

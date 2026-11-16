@@ -177,3 +177,87 @@ def test_a_speaker_still_off_the_set_walks_on_to_their_place_at_their_line():
     assert "acts" not in staged[2]
     assert staged[3]["acts"] == [{"who": "leo", "move": "off"}]
     assert staged[4]["acts"] == [{"who": "leo", "move": "right"}]
+
+
+class _Chatty(_Writer):
+    def __init__(self, replies, fail=False):
+        super().__init__(replies)
+        self.opened: list[str] = []
+        self.turns: list[str] = []
+        self.closed = 0
+        self.fail = fail
+
+    def open_chat(self, system):
+        from kinoforge.segments.story.ports import Chat
+
+        self.opened.append(system)
+
+        def ask(task, user, *, route, temperature, max_tokens):
+            self.turns.append(user)
+            if self.fail:
+                raise RuntimeError("infrelay down")
+            return self.replies.pop(0)
+
+        def close():
+            self.closed += 1
+
+        return Chat(ask=ask, close=close)
+
+    def ports(self) -> StoryPorts:
+        from dataclasses import replace
+
+        return replace(super().ports(), open_chat=self.open_chat)
+
+
+def _talk(n):
+    names = ["Mia", "Leo"]
+    scenes = [{"narration": f"Line {i + 1}.", "speaker": names[i % 2]} for i in range(n)]
+    return {**RECORD, "story": {**RECORD["story"], "scenes": scenes}}
+
+
+def _lines(first, last, pose="talk"):
+    return {"lines": [{"line": n, "acts": [{"who": "mia", "pose": pose}]} for n in range(first, last + 1)]}
+
+
+def test_a_long_script_is_directed_a_few_lines_a_turn_in_one_conversation():
+    fake = _Chatty([_lines(1, 2), _lines(3, 4, "shrug"), _lines(5, 5)])
+    result = LineDirector(fake.ports(), KIT).direct(_talk(5), SET, "cast", None, 0, 0, 2, 2)
+    assert result["ok"] is True and len(result["lines"]) == 5
+    assert [line["acts"][0]["pose"] for line in result["lines"]] == ["talk", "talk", "shrug", "shrug", "talk"]
+    assert [json.loads(turn)["direct"] for turn in fake.turns] == [
+        {"from": 1, "to": 2},
+        {"from": 3, "to": 4},
+        {"from": 5, "to": 5},
+    ]
+    assert len(fake.opened) == 1 and '"line": 5' in fake.opened[0] and fake.closed == 1
+    assert not fake.prompts
+
+
+def test_a_turn_answering_lines_outside_its_span_keeps_only_its_own():
+    fake = _Chatty([_lines(1, 3, "shrug"), _lines(3, 4)])
+    result = LineDirector(fake.ports(), KIT).direct(_talk(4), SET, "cast", None, 0, 0, 2, 2)
+    assert [line["acts"][0]["pose"] for line in result["lines"]] == ["shrug", "shrug", "talk", "talk"]
+
+
+def test_a_refused_turn_is_corrected_in_the_same_conversation():
+    bad = {"lines": [{"line": 1, "acts": [{"who": "zed"}]}, {"line": 2}]}
+    fake = _Chatty([bad, _lines(1, 2), _lines(3, 3)])
+    result = LineDirector(fake.ports(), KIT).direct(_talk(3), SET, "cast", None, 0, 0, 2, 2)
+    assert result["ok"] is True and not result["errors"]
+    assert "was refused" in fake.turns[1] and "zed" in fake.turns[1]
+    assert '"script"' not in fake.turns[1]
+
+
+def test_a_script_that_fits_one_call_is_directed_without_a_conversation():
+    fake = _Chatty([_lines(1, 4)])
+    result = LineDirector(fake.ports(), KIT).direct(_talk(4), SET, "cast", None, 0, 0, 2, 10)
+    assert result["ok"] is True and not fake.opened and len(fake.prompts) == 1
+
+
+def test_the_conversation_is_closed_when_a_turn_fails():
+    import pytest
+
+    fake = _Chatty([], fail=True)
+    with pytest.raises(RuntimeError, match="infrelay down"):
+        LineDirector(fake.ports(), KIT).direct(_talk(4), SET, "cast", None, 0, 0, 2, 2)
+    assert fake.closed == 1

@@ -183,7 +183,7 @@ class StoryRuntime:
                     tries,
                 )
             case StoryOperation.DIRECT_LINES:
-                draws = payload.get("draws")
+                draws, per_call = payload.get("draws"), payload.get("per_call")
                 return LineDirector(operations.ports, dict(payload.get("kit") or {})).direct(
                     dict(payload.get("record") or {}),
                     dict(payload.get("set") or {}),
@@ -192,6 +192,7 @@ class StoryRuntime:
                     int(budgets.get("board") or 0),
                     draws if isinstance(draws, int) and not isinstance(draws, bool) else 0,
                     tries,
+                    per_call if isinstance(per_call, int) and not isinstance(per_call, bool) else 0,
                 )
             case StoryOperation.DRAW_ELEMENTS:
                 wants = payload.get("wants")
