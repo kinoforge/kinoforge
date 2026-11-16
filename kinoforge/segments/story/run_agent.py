@@ -1,6 +1,7 @@
 """Stateful runtime for multi-stage story agents."""
 
 import json
+import re
 from collections.abc import Callable
 
 from kinoforge.contract import AITask, MeterAction, ModelRef
@@ -37,11 +38,14 @@ class StoryShape:
 
     @staticmethod
     def unstyled(prompt: str, style: str) -> str:
-        at = prompt.lower().find(style.lower().rstrip(".")) if style else -1
-        if at < 0:
+        core = style.strip().rstrip(".").strip()
+        if not core:
             return prompt
-        left = f"{prompt[:at]} {prompt[at + len(style.rstrip('.')):]}"
-        return " ".join(left.split()).replace(" ,", ",").strip(" ,.")
+        part = re.compile(rf"(?:^|(?<=[,.;:]))\s*{re.escape(core)}\s*(?=[,.;:]|$)", re.I)
+        left = part.sub(" ", prompt)
+        if left == prompt:
+            return prompt
+        return " ".join(left.split()).replace(" ,", ",").replace(",,", ",").strip(" ,.")
 
     @classmethod
     def normalize(cls, raw: dict) -> dict:

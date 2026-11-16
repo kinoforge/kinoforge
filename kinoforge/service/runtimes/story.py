@@ -157,6 +157,7 @@ class StoryRuntime:
                     request.agent,
                     route,
                     int(budgets.get("rewrite") or 0),
+                    list(payload.get("cast") or []),
                 )
             case StoryOperation.REWRITE_CHARACTERS:
                 return operations.rewrite_characters(

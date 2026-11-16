@@ -57,7 +57,9 @@ def test_build_context_from_brief():
     assert ctx["scene_count"] == 8
     assert ctx["audience"] == "mature"
     assert ctx["language_rule"] == "RULE"
-    assert json.loads(ctx["series_cast"]) == [{"name": "Ava", "look": "tall", "personality": ""}]
+    assert json.loads(ctx["series_cast"]) == [
+        {"name": "Ava", "look": "tall", "wears": "", "personality": ""}
+    ]
 
 
 # --- routes through the ports --------------------------------------------
@@ -221,7 +223,7 @@ def test_an_episode_brief_reads_as_plain_sections():
     ctx = Screenwriter(_Text().ports()).build_context(StoryBrief(
         title="The storm", description="A storm hits the beach.", premise="Two kids by the sea",
         series_name="Sea kids", series_position=2,
-        cast=[{"name": "Ana", "look": "round glasses", "personality": "brave"}],
+        cast=[{"name": "Ana", "look": "curly hair", "wears": "round glasses", "personality": "brave"}],
         series_episodes=[
             {"id": "p1", "title": "The shell", "description": "x", "logline": "Ana finds a shell.",
              "status": "done"},
@@ -232,12 +234,12 @@ def test_an_episode_brief_reads_as_plain_sections():
         "DETAILS:\nA storm hits the beach.\n\n"
         "SERIES:\nSea kids, episode 2\n\n"
         "PREMISE:\nTwo kids by the sea\n\n"
-        "RECURRING CAST:\n- Ana: round glasses. brave\n\n"
+        "RECURRING CAST:\n- Ana: curly hair. Wears round glasses. brave\n\n"
         "EPISODES:\n1. The shell: Ana finds a shell.\n2. The storm: A storm hits. (this episode)\n\n"
         "Keep everything earlier episodes made true, as the slate and the series memory say. "
         "Move the show forward and repeat no earlier beat.\n\n"
-        "Reuse the recurring cast and invent no replacement for them. Where the series memory "
-        "says one of them changed, describe them as they are now."
+        "Reuse the recurring cast and invent no replacement for them. Each is given as they "
+        "are when this video begins: identity first, then what they wear and carry."
     )
 
 
@@ -260,3 +262,8 @@ def test_a_prompt_that_repeats_the_style_keeps_only_the_shot():
         "Close-up of red glasses in the air", "Wide shot of the beach at dusk",
     ]
     assert story["style"] == style
+
+
+def test_a_style_inside_a_word_is_not_a_repeated_style():
+    story = StoryShape.normalize({"style": "s", "scenes": [{"prompt": "shot 7"}]})
+    assert story["scenes"][0]["prompt"] == "shot 7"

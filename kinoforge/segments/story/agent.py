@@ -75,8 +75,8 @@ class BriefText:
         "Move the show forward and repeat no earlier beat."
     )
     CAST_RULE = (
-        "Reuse the recurring cast and invent no replacement for them. Where the series memory "
-        "says one of them changed, describe them as they are now."
+        "Reuse the recurring cast and invent no replacement for them. Each is given as they "
+        "are when this video begins: identity first, then what they wear and carry."
     )
     MATURE_RULE = (
         "Audience: adults. Mature vocabulary and intensity are allowed within platform safety."
@@ -90,8 +90,13 @@ class BriefText:
     def _cast(cls, cast: list[dict]) -> str:
         lines = []
         for member in cast:
+            wears = cls._line(member["wears"])
             said = ". ".join(
-                part for part in (cls._line(member["look"]), cls._line(member["personality"]))
+                part for part in (
+                    cls._line(member["look"]),
+                    f"Wears {wears}" if wears else "",
+                    cls._line(member["personality"]),
+                )
                 if part
             )
             lines.append(f"- {member['name']}: {said}" if said else f"- {member['name']}")
@@ -144,6 +149,7 @@ class Screenwriter:
             {
                 "name": str(character.get("name") or "").strip(),
                 "look": str(character.get("look") or "").strip(),
+                "wears": str(character.get("wears") or "").strip(),
                 "personality": str(character.get("personality") or "").strip(),
             }
             for character in brief.cast or []

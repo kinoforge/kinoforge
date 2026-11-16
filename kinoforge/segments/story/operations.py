@@ -103,18 +103,42 @@ class StoryOperations:
             },
         }
 
+    @staticmethod
+    def _cast_lines(cast: list[dict]) -> str:
+        lines = []
+        for member in cast:
+            name = clean_text(member.get("name"))
+            if not name:
+                continue
+            look = clean_text(member.get("look")) or "not given"
+            wears = clean_text(member.get("wears")) or "not given"
+            lines.append(f"- {name}. Identity: {look} State: {wears}")
+        return "\n".join(lines) or "none"
+
+    @staticmethod
+    def _looks(raw: object) -> list[dict]:
+        items = raw if isinstance(raw, list) else []
+        return [
+            {key: clean_text(item.get(key)) for key in ("name", "look", "wears")}
+            for item in items
+            if isinstance(item, dict) and clean_text(item.get("name"))
+        ]
+
     def summarize_episode(
-        self, rec: dict, agent: dict, route: ModelRef | None = None, max_tokens: int = 0
+        self,
+        rec: dict,
+        agent: dict,
+        route: ModelRef | None = None,
+        max_tokens: int = 0,
+        cast: list[dict] | None = None,
     ) -> dict:
-        """What the episode told and changed, for the writers of the next ones: written on the
-        episode's conversation when it has one, so the writer sums up what it wrote."""
         story = rec.get("story") or {}
         scenes = story.get("scenes") or []
         if not scenes:
             return {"ok": False, "error": "the episode has no story yet"}
         inp = rec.get("input") or {}
         told = "\n".join(
-            f"{i + 1}. {scene.get('narration') or scene.get('prompt') or ''}"
+            f"{i + 1}. {scene.get('narration') or ''} Shown: {scene.get('prompt') or ''}"
             for i, scene in enumerate(scenes)
         )
         prompt = self.ports.prompt(
@@ -122,6 +146,7 @@ class StoryOperations:
             title=str(inp.get("title") or ""),
             summary=self._story_summary(story),
             scenes=told,
+            cast=self._cast_lines(cast or []),
             language_rule=self.ports.language_rule(
                 "the summary", language_name(str(inp.get("language") or ""), self.ports.languages)
             ),
@@ -133,12 +158,15 @@ class StoryOperations:
                 AITask.STORY_WRITE, self._agent_voice(agent), prompt, route=route or ModelRef(),
                 temperature=0.3, max_tokens=max_tokens, **turn,
             )
+            answer = self.ports.parse_json(text)
+        except (ValueError, json.JSONDecodeError):
+            return {"ok": False, "error": "The episode summary came back unreadable."}
         except Exception as error:
             return ModelFailure.of("The episode summary", error)
-        summary = clean_text(text)
+        summary = clean_text(answer.get("summary")) if isinstance(answer, dict) else ""
         if not summary:
             return {"ok": False, "error": "The episode summary came back empty."}
-        return {"ok": True, "summary": summary}
+        return {"ok": True, "summary": summary, "cast": self._looks(answer.get("cast"))}
 
     def rewrite_characters(
         self,
