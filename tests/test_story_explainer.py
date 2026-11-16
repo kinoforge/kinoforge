@@ -320,6 +320,21 @@ def test_write_stage_returns_the_stage_alone():
     assert not any(system.startswith("<explainer_board>") for system, _ in fake.prompts)
 
 
+def test_an_empty_optional_stage_part_is_left_out_instead_of_refused():
+    road = {"type": "object", "required": ["side"], "properties": {"side": {"enum": ["left"]}}}
+    schema = {**STAGE_SCHEMA, "properties": {**STAGE_SCHEMA["properties"], "road": road}}
+    kit = {**KIT, "stage": {"catalog": "STAGE: nodes", "schema": schema}}
+    fake = _Writer({"stage": [{**STAGE, "road": {}, "places": None}]})
+    result = StageWriter(fake.ports(), kit).write(RECORD, None, 0, tries=1)
+    assert result == {"ok": True, "stage": STAGE}
+
+
+def test_an_empty_required_stage_part_is_still_refused():
+    fake = _Writer({"stage": [{"nodes": None}]})
+    result = StageWriter(fake.ports(), STAGED).write(RECORD, None, 0, tries=1)
+    assert result["ok"] is False and result["answer"] == {"nodes": None}
+
+
 def test_the_stage_reads_the_makers_brief_beside_the_narration():
     fake = _Writer({"stage": [STAGE]})
     record = {**RECORD, "input": {"language": "", "description": "Show the AWS logo."}}

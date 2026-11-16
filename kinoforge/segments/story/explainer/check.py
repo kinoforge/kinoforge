@@ -44,7 +44,18 @@ class BoardCheck:
         if ref and isinstance(stage, Mapping):
             kind = validators.extend(Draft202012Validator, {ref: StageIds(stage).keyword})
         self._validator = kind(dict(schema))
+        self._required = set(schema.get("required") or [])
         self.name = name
+
+    def trimmed(self, answer: object) -> object:
+        if not isinstance(answer, dict):
+            return answer
+        return {
+            key: value
+            for key, value in answer.items()
+            if key in self._required
+            or not (value is None or (isinstance(value, dict) and not value))
+        }
 
     def problems(self, answer: object, limit: int = 8) -> list[str]:
         found = self._validator.iter_errors(answer)
@@ -168,7 +179,9 @@ class KitAsk:
             except json.JSONDecodeError as error:
                 drawn, problems = None, [f"the answer was not valid JSON ({error})"]
                 continue
-            drawn = answer.get(self.check.name, answer) if isinstance(answer, dict) else answer
+            drawn = self.check.trimmed(
+                answer.get(self.check.name, answer) if isinstance(answer, dict) else answer
+            )
             problems = self.check.problems(drawn)
             if not problems and isinstance(drawn, dict):
                 problems = more(drawn)
