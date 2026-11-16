@@ -106,8 +106,10 @@ class RunAgent:
         on_stage: StageCallback | None = None,
         route: ModelRef | None = None,
         is_cancelled: CancellationChecker | None = None,
+        conversation: str = "",
     ) -> None:
         self.ports = ports
+        self.conversation = conversation
         self.agent = agent
         self.ctx = ctx
         self.on_stage = on_stage
@@ -137,8 +139,11 @@ class RunAgent:
         }
 
     def _build_prompt(self, stage: dict, idea: str, is_json: bool) -> str:
-        parts = [idea]
-        parts += [f"{role.upper()}:\n{text}" for role, text in self.outputs]
+        if self.conversation:
+            parts = [] if self.outputs else [idea]
+        else:
+            parts = [idea]
+            parts += [f"{role.upper()}:\n{text}" for role, text in self.outputs]
 
         instructions = (stage.get("instructions") or "").strip()
         if instructions:
@@ -173,6 +178,7 @@ class RunAgent:
         prompt = self._build_prompt(stage, idea, is_json)
         temperature = StageUtils.temperature(stage, is_json)
         attempts = JSON_ATTEMPTS if is_json else 1
+        first_turn = not self.outputs
         for attempt in range(attempts):
             try:
                 text, usage = self.ports.complete(
@@ -183,6 +189,7 @@ class RunAgent:
                     route=route,
                     temperature=temperature,
                     max_tokens=self.ports.story_budget(stage.get("max_output_tokens")),
+                    **self._turn(first_turn and attempt == 0),
                 )
             except Exception as error:
                 # What went wrong upstream is `detail`, for the caller to log or word.
@@ -196,9 +203,16 @@ class RunAgent:
                 return None
             if usage.get("finish_reason") == "length" or attempt == attempts - 1:
                 return failure
-            prompt = f"{prompt}\n\n{JSON_REMINDER}"
+            prompt = JSON_REMINDER if self.conversation else f"{prompt}\n\n{JSON_REMINDER}"
             temperature = min(temperature, JSON_TEMPERATURE)
         return None
+
+    def _turn(self, opening: bool) -> dict:
+        """A conversation turn sends only its new message; the run's opening turn lets the
+        conversation fold its older turns first, so nothing folds while stages read each other."""
+        if not self.conversation:
+            return {}
+        return {"conversation": self.conversation, "compact": opening}
 
     def _take_story(self, text: str, usage: dict) -> dict | None:
         """Parse first: a model can hit the token budget yet still emit valid JSON, so trust

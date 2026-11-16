@@ -99,6 +99,7 @@ class StoryRuntime:
                 on_stage=partial(self._log_stage, session.logger),
                 route=session.route,
                 is_cancelled=is_cancelled,
+                conversation=request.conversation,
             ).run()
         finally:
             reset(token)
@@ -147,6 +148,13 @@ class StoryRuntime:
                     index,
                     request.agent,
                     str(payload.get("instructions") or ""),
+                    route,
+                    int(budgets.get("rewrite") or 0),
+                )
+            case StoryOperation.SUMMARIZE_EPISODE:
+                return operations.summarize_episode(
+                    dict(payload.get("record") or {}),
+                    request.agent,
                     route,
                     int(budgets.get("rewrite") or 0),
                 )

@@ -149,3 +149,42 @@ def test_video_mode_animates_every_scene_a_speaker_says_on_camera():
     ctx = {**_CTX, "scene_count": 3, "require_motion": True}
     result, _ = _run([_JSON_STAGE], [json.dumps(story)], ctx=ctx)
     assert [s["motion"] for s in result["story"]["scenes"]] == [True, True, False]
+
+
+class _Turns(_Ports):
+    def __init__(self, replies: List) -> None:
+        super().__init__(replies)
+        self.sent: List[dict] = []
+
+    def complete(self, purpose, system, user, *, route, temperature, max_tokens, **turn):
+        self.sent.append({"user": user, **turn})
+        return super().complete(purpose, system, user, route=route, temperature=temperature,
+                                max_tokens=max_tokens)
+
+
+def _converse(stages, replies):
+    fake = _Turns(replies)
+    result = RunAgent(fake.ports(), {"stages": stages}, dict(_CTX),
+                      conversation="conv_0123456789abc").run()
+    return result, fake
+
+
+def test_a_conversation_sends_each_stage_only_its_new_turn():
+    result, fake = _converse(
+        [{"role": "research", "instructions": "find facts"}, {**_JSON_STAGE, "instructions": "write"}],
+        ["the facts", json.dumps(_STORY)],
+    )
+    assert result["ok"] is True
+    first, second = fake.sent
+    assert first["user"].startswith("<story_idea>") and "find facts" in first["user"]
+    assert "<story_idea>" not in second["user"] and "the facts" not in second["user"]
+    assert "write" in second["user"] and "CONTRACT" in second["user"]
+    assert [t["conversation"] for t in fake.sent] == ["conv_0123456789abc"] * 2
+    assert [t["compact"] for t in fake.sent] == [True, False]
+
+
+def test_a_conversation_asks_again_with_the_reminder_alone():
+    result, fake = _converse([_JSON_STAGE], ["not json", json.dumps(_STORY)])
+    assert result["ok"] is True
+    assert fake.sent[1]["user"] == "Your previous reply was not valid JSON. Reply with the JSON object only."
+    assert fake.sent[1]["compact"] is False

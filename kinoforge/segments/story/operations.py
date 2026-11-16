@@ -31,12 +31,17 @@ class StoryOperations:
 
     def _ask_json(
         self, task: AITask, system: str, prompt: str, route: ModelRef | None,
-        temperature: float, max_tokens: int,
+        temperature: float, max_tokens: int, conversation: str = "",
     ) -> dict:
+        turn = {"conversation": conversation} if conversation else {}
         return self.ports.complete_json(
             task, system, prompt, route=route or ModelRef(),
-            temperature=temperature, max_tokens=max_tokens,
+            temperature=temperature, max_tokens=max_tokens, **turn,
         )
+
+    @staticmethod
+    def _conversation(rec: dict) -> str:
+        return str((rec.get("input") or {}).get("conversation") or "")
 
     def _agent_voice(self, agent: dict) -> str:
         """The same voice RunAgent writes with: the agent's persona, else the global default."""
@@ -84,7 +89,10 @@ class StoryOperations:
         if instructions.strip():
             prompt = f"{prompt}\n\nExtra direction for this rewrite:\n{instructions.strip()}"
         try:
-            data = self._ask_json(AITask.STORY_WRITE, self._agent_voice(agent), prompt, route, 0.9, max_tokens)
+            data = self._ask_json(
+                AITask.STORY_WRITE, self._agent_voice(agent), prompt, route, 0.9, max_tokens,
+                self._conversation(rec),
+            )
         except Exception as error:
             return ModelFailure.of("The scene rewrite", error)
         return {
@@ -94,6 +102,43 @@ class StoryOperations:
                 "narration": clean_text(data.get("narration")),
             },
         }
+
+    def summarize_episode(
+        self, rec: dict, agent: dict, route: ModelRef | None = None, max_tokens: int = 0
+    ) -> dict:
+        """What the episode told and changed, for the writers of the next ones: written on the
+        episode's conversation when it has one, so the writer sums up what it wrote."""
+        story = rec.get("story") or {}
+        scenes = story.get("scenes") or []
+        if not scenes:
+            return {"ok": False, "error": "the episode has no story yet"}
+        inp = rec.get("input") or {}
+        told = "\n".join(
+            f"{i + 1}. {scene.get('narration') or scene.get('prompt') or ''}"
+            for i, scene in enumerate(scenes)
+        )
+        prompt = self.ports.prompt(
+            "story_episode_summary",
+            title=str(inp.get("title") or ""),
+            summary=self._story_summary(story),
+            scenes=told,
+            language_rule=self.ports.language_rule(
+                "the summary", language_name(str(inp.get("language") or ""), self.ports.languages)
+            ),
+        )
+        conversation = self._conversation(rec)
+        turn = {"conversation": conversation} if conversation else {}
+        try:
+            text, _ = self.ports.complete(
+                AITask.STORY_WRITE, self._agent_voice(agent), prompt, route=route or ModelRef(),
+                temperature=0.3, max_tokens=max_tokens, **turn,
+            )
+        except Exception as error:
+            return ModelFailure.of("The episode summary", error)
+        summary = clean_text(text)
+        if not summary:
+            return {"ok": False, "error": "The episode summary came back empty."}
+        return {"ok": True, "summary": summary}
 
     def rewrite_characters(
         self,

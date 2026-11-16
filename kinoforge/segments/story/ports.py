@@ -11,6 +11,7 @@ class Complete(Protocol):
     def __call__(
         self, task: AITask, system: str, user: str, *,
         route: ModelRef, temperature: float, max_tokens: int,
+        conversation: str = "", compact: bool = False,
     ) -> tuple[str, dict]: ...
 
 
@@ -18,6 +19,7 @@ class CompleteJson(Protocol):
     def __call__(
         self, task: AITask, system: str, user: str, *,
         route: ModelRef, temperature: float, max_tokens: int,
+        conversation: str = "", compact: bool = False,
     ) -> dict: ...
 
 

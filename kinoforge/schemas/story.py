@@ -43,6 +43,10 @@ class StoryWriteRequest(OperationRequest):
     )
     project_id: str = Field(default="", description="Caller-owned durable project identifier.")
     owner: str = Field(default="", description="Opaque tenant or owner identifier.")
+    conversation: str = Field(
+        default="",
+        description="Infrelay conversation the stages run as turns in; empty runs them stateless.",
+    )
     context: StoryContextRequest = Field(description="What the screenwriter writes from.")
     agent: dict[str, Any] = Field(
         description="Resolved screenwriter: ordered stages, persona, per-stage model overrides.",
@@ -82,6 +86,7 @@ class StoryOperation(StrEnum):
     WRITE_SET = "write_set"
     DIRECT_LINES = "direct_lines"
     SUGGEST_FIELD = "suggest_field"
+    SUMMARIZE_EPISODE = "summarize_episode"
 
 
 class StoryOperationRequest(OperationRequest):

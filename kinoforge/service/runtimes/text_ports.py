@@ -72,19 +72,24 @@ class InfrelayTextPorts:
     def complete(
         self, task: AITask, system: str, user: str, *,
         route: ModelRef, temperature: float, max_tokens: int,
+        conversation: str = "", compact: bool = False,
     ) -> tuple[str, dict[str, Any]]:
         active().debug(f"{self._label} text call: {task}", route=str(route),
-                       max_tokens=max_tokens, temperature=temperature)
+                       max_tokens=max_tokens, temperature=temperature,
+                       conversation=conversation or None)
+        turn = {"conversation": conversation, "compact": compact} if conversation else {}
         return self._infrelay.text(
-            task, route, system, user, temperature=temperature, max_tokens=max_tokens
+            task, route, system, user, temperature=temperature, max_tokens=max_tokens, **turn
         )
 
     def complete_json(
         self, task: AITask, system: str, user: str, *,
         route: ModelRef, temperature: float, max_tokens: int,
+        conversation: str = "", compact: bool = False,
     ) -> dict[str, Any]:
         text, _ = self.complete(
-            task, system, user, route=route, temperature=temperature, max_tokens=max_tokens
+            task, system, user, route=route, temperature=temperature, max_tokens=max_tokens,
+            conversation=conversation, compact=compact,
         )
         return self.parse_json(text)
 

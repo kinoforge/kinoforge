@@ -184,12 +184,12 @@ class InfrelayClient:
 
     def text(
         self, task: AITask, ref: ModelRef, system: str, user: str, *, temperature: float,
-        max_tokens: int, conversation: str = "",
+        max_tokens: int, conversation: str = "", compact: bool = False,
     ) -> Tuple[str, Dict]:
         """One chat completion: (text, usage). Usage carries model, token counts and
         finish_reason so a stage runner can detect a cut-off answer."""
         output = self._chat(
-            task, ref, system, user, temperature, max_tokens, conversation
+            task, ref, system, user, temperature, max_tokens, conversation, compact
         )["output"]
         return str(output.get("value") or ""), dict(output.get("meta") or {})
 
@@ -215,11 +215,13 @@ class InfrelayClient:
         return str(result["output"].get("value") or ""), served
 
     def _chat(self, task: AITask, ref: ModelRef, system: str, user: str, temperature: float,
-              max_tokens: int, conversation: str = "") -> Dict[str, Any]:
+              max_tokens: int, conversation: str = "", compact: bool = False) -> Dict[str, Any]:
         payload: Dict[str, Any] = {"system": system, "user": user,
                                    "temperature": temperature, "max_tokens": max_tokens}
         if conversation:
             payload["conversation"] = conversation
+        if conversation and compact:
+            payload["compact"] = True
         result = self._infer(task, ref, payload, timeout=300)
         if (result.get("output") or {}).get("type") != "text":
             raise InfrelayError("infrelay text returned unsupported output")
