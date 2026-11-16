@@ -35,6 +35,14 @@ class StoryShape:
         name = clean_text(scene.get("speaker"))
         return name if name in names else ""
 
+    @staticmethod
+    def unstyled(prompt: str, style: str) -> str:
+        at = prompt.lower().find(style.lower().rstrip(".")) if style else -1
+        if at < 0:
+            return prompt
+        left = f"{prompt[:at]} {prompt[at + len(style.rstrip('.')):]}"
+        return " ".join(left.split()).replace(" ,", ",").strip(" ,.")
+
     @classmethod
     def normalize(cls, raw: dict) -> dict:
         characters = [
@@ -47,9 +55,10 @@ class StoryShape:
             and (character.get("name") or character.get("description"))
         ]
         names = {character["name"] for character in characters if character["name"]}
+        style = clean_text(raw.get("style"))
         scenes = [
             {
-                "prompt": clean_text(scene.get("prompt")),
+                "prompt": cls.unstyled(clean_text(scene.get("prompt")), style),
                 "narration": clean_text(scene.get("narration")),
                 "motion": cls.flag(scene.get("motion")),
                 "speaker": cls.speaker(scene, names),
@@ -59,7 +68,7 @@ class StoryShape:
         ]
         return {
             "logline": clean_text(raw.get("logline")),
-            "style": clean_text(raw.get("style")),
+            "style": style,
             "characters": characters,
             "scenes": scenes,
         }

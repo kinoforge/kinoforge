@@ -74,7 +74,10 @@ class BriefText:
         "Keep everything earlier episodes made true, as the slate and the series memory say. "
         "Move the show forward and repeat no earlier beat."
     )
-    CAST_RULE = "Reuse the recurring cast as described and invent no replacement for them."
+    CAST_RULE = (
+        "Reuse the recurring cast and invent no replacement for them. Where the series memory "
+        "says one of them changed, describe them as they are now."
+    )
     MATURE_RULE = (
         "Audience: adults. Mature vocabulary and intensity are allowed within platform safety."
     )

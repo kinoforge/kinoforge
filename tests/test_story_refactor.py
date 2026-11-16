@@ -13,7 +13,7 @@ from kinoforge.segments.story.media.music import MusicComposer
 from kinoforge.segments.story.media.videos import ClipMaker
 from kinoforge.segments.story.operations import StoryOperations
 from kinoforge.segments.story.ports import StoryPorts
-from kinoforge.segments.story.run_agent import RunAgent
+from kinoforge.segments.story.run_agent import RunAgent, StoryShape
 
 
 class _Text:
@@ -236,7 +236,8 @@ def test_an_episode_brief_reads_as_plain_sections():
         "EPISODES:\n1. The shell: Ana finds a shell.\n2. The storm: A storm hits. (this episode)\n\n"
         "Keep everything earlier episodes made true, as the slate and the series memory say. "
         "Move the show forward and repeat no earlier beat.\n\n"
-        "Reuse the recurring cast as described and invent no replacement for them."
+        "Reuse the recurring cast and invent no replacement for them. Where the series memory "
+        "says one of them changed, describe them as they are now."
     )
 
 
@@ -247,3 +248,15 @@ def test_the_idea_prompt_gets_the_brief():
     RunAgent(ports, {"stages": []}, {"title": "T", "description": "", "scene_count": 3,
                                      "output_format": "video", "brief": "DETAILS:\nx"})._idea()
     assert seen["brief"] == "DETAILS:\nx"
+
+
+def test_a_prompt_that_repeats_the_style_keeps_only_the_shot():
+    style = "Hyper-realistic live-action, slate grays, contemporary era."
+    story = StoryShape.normalize({"style": style, "scenes": [
+        {"prompt": "Close-up of red glasses in the air, hyper-realistic live-action, slate grays, contemporary era."},
+        {"prompt": "Wide shot of the beach at dusk"},
+    ]})
+    assert [s["prompt"] for s in story["scenes"]] == [
+        "Close-up of red glasses in the air", "Wide shot of the beach at dusk",
+    ]
+    assert story["style"] == style
