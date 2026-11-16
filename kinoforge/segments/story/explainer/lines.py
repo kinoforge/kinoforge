@@ -14,6 +14,9 @@ PROMPT_KEY = "explainer_lines"
 
 class LineDirector:
     TEMPERATURE = 0.5
+    OFF = "off"
+    HOME = "center"
+    MOST_ACTS = 4
 
     def __init__(self, ports: StoryPorts, kit: Mapping) -> None:
         part = kit.get("direction") or {}
@@ -100,7 +103,31 @@ class LineDirector:
                 continue
             kept.setdefault(number, {key: value for key, value in item.items() if key != "line"})
         lines = [{**kept.get(i + 1, {}), "speaker": speakers[i]} for i in range(len(scenes))]
-        return {"ok": True, "lines": self.capped(lines, presenter, draws), "errors": errors}
+        lines = self.staged(self.capped(lines, presenter, draws), drawn_set)
+        return {"ok": True, "lines": lines, "errors": errors}
+
+    @classmethod
+    def staged(cls, lines: list[dict], drawn_set: Mapping) -> list[dict]:
+        cast = [member for member in drawn_set.get("cast") or [] if isinstance(member, Mapping)]
+        homes = {str(member.get("id")): str(member.get("place") or cls.HOME) for member in cast}
+        off = {str(member.get("id")) for member in cast if member.get("enters")}
+        for line in lines:
+            acts = [dict(act) for act in line.get("acts") or [] if isinstance(act, Mapping)]
+            speaker = line["speaker"]
+            own = next((act for act in acts if act.get("who") == speaker), None)
+            if speaker in off and not (own or {}).get("move"):
+                if own is None:
+                    own = {"who": speaker}
+                    acts = [own, *acts][: cls.MOST_ACTS]
+                own["move"] = homes.get(speaker, cls.HOME)
+            for act in acts:
+                if act.get("move") == cls.OFF:
+                    off.add(str(act.get("who")))
+                elif act.get("move"):
+                    off.discard(str(act.get("who")))
+            if acts:
+                line["acts"] = acts
+        return lines
 
     def capped(self, lines: list[dict], presenter: str, draws: int) -> list[dict]:
         left = max(0, draws)

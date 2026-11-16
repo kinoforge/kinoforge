@@ -155,3 +155,25 @@ def test_without_a_cast_or_the_prompt_nothing_is_directed():
     fake = _Writer([], missing={"explainer_lines"})
     result = LineDirector(fake.ports(), KIT).direct(RECORD, SET, "cast", None, 0, 1)
     assert result == {"ok": False, "error": "the lines prompt is missing"}
+
+
+def test_a_speaker_still_off_the_set_walks_on_to_their_place_at_their_line():
+    drawn = {
+        "cast": [
+            {"id": "mia", "place": "left", "enters": True},
+            {"id": "leo", "place": "right", "enters": True},
+        ]
+    }
+    lines = [
+        {"speaker": "mia", "acts": [{"who": "mia", "pose": "arms_up"}]},
+        {"speaker": "leo", "acts": [{"who": "mia", "pose": "think"}]},
+        {"speaker": "mia"},
+        {"speaker": "leo", "acts": [{"who": "leo", "move": "off"}]},
+        {"speaker": "leo"},
+    ]
+    staged = LineDirector.staged(lines, drawn)
+    assert staged[0]["acts"] == [{"who": "mia", "pose": "arms_up", "move": "left"}]
+    assert staged[1]["acts"][0] == {"who": "leo", "move": "right"}
+    assert "acts" not in staged[2]
+    assert staged[3]["acts"] == [{"who": "leo", "move": "off"}]
+    assert staged[4]["acts"] == [{"who": "leo", "move": "right"}]
