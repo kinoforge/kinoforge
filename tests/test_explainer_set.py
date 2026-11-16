@@ -103,6 +103,17 @@ def test_cast_ids_must_differ():
     assert result["answer"] == {"cast": [MIA, {"id": "mia", "name": "Leo"}]}
 
 
+def test_the_set_writer_reads_what_the_script_puts_in_hand():
+    scenes = [dict(scene) for scene in RECORD["story"]["scenes"]]
+    scenes[0]["prompt"] = "Mia waves a toothbrush."
+    record = {**RECORD, "story": {**RECORD["story"], "scenes": scenes}}
+    fake = _Writer([{"set": {"cast": [MIA, LEO]}}])
+    SetWriter(fake.ports(), KIT).write(record, "cast", None, 0)
+    sent = json.loads(fake.prompts[0][1])
+    assert sent["script"][0]["does"] == "Mia waves a toothbrush."
+    assert "does" not in sent["script"][1]
+
+
 def test_a_set_that_still_fits_is_kept():
     record = {**RECORD, "story": {**RECORD["story"], "set": {"cast": [MIA, LEO]}}}
     fake = _Writer([])

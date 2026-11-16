@@ -105,6 +105,16 @@ def test_every_scene_gets_a_line_spoken_by_its_cast_member():
     assert fake.prompts[0][0] == "<explainer_lines>LINES"
 
 
+def test_the_director_reads_what_the_script_has_each_speaker_do():
+    scenes = [dict(scene) for scene in RECORD["story"]["scenes"]]
+    scenes[1]["prompt"] = "Leo crosses his arms, holding a mug."
+    record = {**RECORD, "story": {**RECORD["story"], "scenes": scenes}}
+    fake, _ = _direct([{"lines": [{"line": 1}]}], record=record)
+    sent = json.loads(fake.prompts[0][1])
+    assert sent["script"][1]["does"] == "Leo crosses his arms, holding a mug."
+    assert "does" not in sent["script"][0]
+
+
 def test_a_cast_draws_no_more_than_allowed_and_never_on_the_first_line():
     answer = {"lines": [{"line": n, "draw": "full"} for n in (1, 2, 3, 4)]}
     _, result = _direct([answer], draws=2)

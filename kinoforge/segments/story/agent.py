@@ -69,6 +69,66 @@ class StoryBrief:
         return cls(**{key: val for key, val in value.items() if key in known})
 
 
+class BriefText:
+    SERIES_RULE = (
+        "Keep everything earlier episodes made true, as the slate and the series memory say. "
+        "Move the show forward and repeat no earlier beat."
+    )
+    CAST_RULE = "Reuse the recurring cast as described and invent no replacement for them."
+    MATURE_RULE = (
+        "Audience: adults. Mature vocabulary and intensity are allowed within platform safety."
+    )
+
+    @staticmethod
+    def _line(value: object) -> str:
+        return " ".join(str(value or "").split())
+
+    @classmethod
+    def _cast(cls, cast: list[dict]) -> str:
+        lines = []
+        for member in cast:
+            said = ". ".join(
+                part for part in (cls._line(member["look"]), cls._line(member["personality"]))
+                if part
+            )
+            lines.append(f"- {member['name']}: {said}" if said else f"- {member['name']}")
+        return "\n".join(lines)
+
+    @classmethod
+    def _slate(cls, episodes: list[dict], position: int) -> str:
+        lines = []
+        for number, episode in enumerate(episodes, start=1):
+            if not isinstance(episode, dict):
+                continue
+            title = cls._line(episode.get("title"))
+            about = cls._line(episode.get("logline") or episode.get("description"))
+            line = f"{number}. {title}: {about}" if about else f"{number}. {title}"
+            lines.append(f"{line} (this episode)" if number == position else line)
+        return "\n".join(lines)
+
+    @classmethod
+    def of(cls, brief: StoryBrief, cast: list[dict]) -> str:
+        position = max(0, int(brief.series_position or 0))
+        name = cls._line(brief.series_name)
+        series = name or brief.series_episodes or brief.premise
+        sections = [
+            ("DETAILS", (brief.description or "").strip()),
+            ("GENRE", cls._line(brief.genre)),
+            ("SERIES", f"{name}, episode {position}" if name and position else name),
+            ("PREMISE", (brief.premise or "").strip()),
+            ("RECURRING CAST", cls._cast(cast)),
+            ("EPISODES", cls._slate(brief.series_episodes or [], position)),
+        ]
+        parts = [f"{label}:\n{text}" for label, text in sections if text]
+        if series:
+            parts.append(cls.SERIES_RULE)
+        if cast:
+            parts.append(cls.CAST_RULE)
+        if brief.mature:
+            parts.append(cls.MATURE_RULE)
+        return "\n\n".join(parts)
+
+
 class Screenwriter:
     """Context builder for a story agent, over injected ports."""
 
@@ -103,4 +163,5 @@ class Screenwriter:
             "series_history": json.dumps(brief.series_episodes or [], ensure_ascii=False),
             "series_position": max(0, int(brief.series_position or 0)),
             "audience": (AudienceMode.MATURE if brief.mature else AudienceMode.GENERAL).value,
+            "brief": BriefText.of(brief, series_cast),
         }

@@ -5,7 +5,7 @@ from kinoforge.contract import ModelRef
 from kinoforge.definitions.models import DefinitionError
 from kinoforge.segments.story.agent import clean_text
 from kinoforge.segments.story.explainer.check import BoardCheck, KitAsk, KitRefused
-from kinoforge.segments.story.explainer.set import CAST
+from kinoforge.segments.story.explainer.set import CAST, ScriptUtils
 from kinoforge.segments.story.languages import language_name
 from kinoforge.segments.story.ports import Chat, StoryPorts
 
@@ -65,7 +65,7 @@ class LineDirector:
             "draws": self.rule(presenter, draws),
             "set": drawn_set,
             "script": [
-                {"line": i + 1, "speaker": speakers[i], "text": clean_text(scene.get("narration"))}
+                ScriptUtils.line({"line": i + 1, "speaker": speakers[i]}, scene)
                 for i, scene in enumerate(scenes)
             ],
         }

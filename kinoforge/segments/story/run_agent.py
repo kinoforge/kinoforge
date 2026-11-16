@@ -242,6 +242,7 @@ class RunAgent:
             series_history=ctx.get("series_history", "[]"),
             series_position=ctx.get("series_position", 0),
             audience=ctx.get("audience", AudienceMode.GENERAL.value),
+            brief=ctx.get("brief", ""),
         )
 
     def _run_stages(self, idea: str) -> dict | None:

@@ -210,3 +210,40 @@ def test_translate_rejections():
     assert _translate({"narration": ["uno", ""]})["error"] == "translation omitted narrated scenes"
     assert _translate({"narration": ["one", "two"]})["error"] == (
         "translation returned original narration unchanged")
+
+
+def test_the_brief_names_only_what_was_given():
+    ctx = Screenwriter(_Text().ports()).build_context(StoryBrief(title="Solo"))
+    assert ctx["brief"] == ""
+
+
+def test_an_episode_brief_reads_as_plain_sections():
+    ctx = Screenwriter(_Text().ports()).build_context(StoryBrief(
+        title="The storm", description="A storm hits the beach.", premise="Two kids by the sea",
+        series_name="Sea kids", series_position=2,
+        cast=[{"name": "Ana", "look": "round glasses", "personality": "brave"}],
+        series_episodes=[
+            {"id": "p1", "title": "The shell", "description": "x", "logline": "Ana finds a shell.",
+             "status": "done"},
+            {"id": "", "title": "The storm", "description": "A storm hits.", "status": "planned"},
+        ],
+    ))
+    assert ctx["brief"] == (
+        "DETAILS:\nA storm hits the beach.\n\n"
+        "SERIES:\nSea kids, episode 2\n\n"
+        "PREMISE:\nTwo kids by the sea\n\n"
+        "RECURRING CAST:\n- Ana: round glasses. brave\n\n"
+        "EPISODES:\n1. The shell: Ana finds a shell.\n2. The storm: A storm hits. (this episode)\n\n"
+        "Keep everything earlier episodes made true, as the slate and the series memory say. "
+        "Move the show forward and repeat no earlier beat.\n\n"
+        "Reuse the recurring cast as described and invent no replacement for them."
+    )
+
+
+def test_the_idea_prompt_gets_the_brief():
+    seen = {}
+    ports = _Text().ports()
+    ports = StoryPorts(**{**ports.__dict__, "prompt": lambda key, **values: seen.update(values) or key})
+    RunAgent(ports, {"stages": []}, {"title": "T", "description": "", "scene_count": 3,
+                                     "output_format": "video", "brief": "DETAILS:\nx"})._idea()
+    assert seen["brief"] == "DETAILS:\nx"

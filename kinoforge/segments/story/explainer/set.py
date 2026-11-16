@@ -12,6 +12,14 @@ PROMPT_KEY = "explainer_set"
 CAST = "cast"
 
 
+class ScriptUtils:
+    @staticmethod
+    def line(head: dict, scene: Mapping) -> dict:
+        line = {**head, "text": clean_text(scene.get("narration"))}
+        does = clean_text(scene.get("prompt"))
+        return {**line, "does": does} if does else line
+
+
 class SetWriter:
     TEMPERATURE = 0.5
 
@@ -105,10 +113,7 @@ class SetWriter:
                     if isinstance(person, Mapping) and presenter == CAST
                 ],
                 "script": [
-                    {
-                        "speaker": clean_text(scene.get("speaker")),
-                        "text": clean_text(scene.get("narration")),
-                    }
+                    ScriptUtils.line({"speaker": clean_text(scene.get("speaker"))}, scene)
                     for scene in scenes
                 ],
             },
