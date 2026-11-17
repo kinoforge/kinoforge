@@ -3,6 +3,11 @@
 Split from a single 665-line module into per-domain files; this package re-exports every
 name so `from kinoforge.schemas import X` is unchanged for routers and runtimes."""
 
+from kinoforge.schemas.animated import (
+    AnimatedOperation,
+    AnimatedOperationRequest,
+    AnimatedOperationResponse,
+)
 from kinoforge.schemas.clips import (
     ClipsExecutionRequest,
     ClipsExecutionResponse,
@@ -87,6 +92,7 @@ __all__ = [
     # story
     "StoryContextRequest", "StoryWriteRequest", "StoryWriteResponse", "StoryOperation",
     "StoryOperationRequest", "StoryOperationResponse",
+    "AnimatedOperation", "AnimatedOperationRequest", "AnimatedOperationResponse",
     # series
     "SeriesContextRequest", "SeriesPlanRequest", "SeriesPlanResponse",
     # media

@@ -61,7 +61,7 @@ class OpenChat(Protocol):
 
 
 @dataclass(frozen=True)
-class StoryPorts:
+class TextPorts:
     complete: Complete
     complete_json: CompleteJson
     parse_json: ParseJson

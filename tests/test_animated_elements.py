@@ -3,8 +3,8 @@ import threading
 
 from kinoforge.contract import AITask
 from kinoforge.definitions.models import DefinitionError
-from kinoforge.segments.story.explainer.elements import ElementDrawer
-from kinoforge.segments.story.ports import StoryPorts
+from kinoforge.segments.animated.elements import ElementDrawer
+from kinoforge.segments.common.ports import TextPorts
 
 SHAPE_SCHEMA = {
     "type": "object",
@@ -42,6 +42,9 @@ class _Drawer:
     def prompt(self, key, **params):
         if self.missing:
             raise DefinitionError(f"required agent definition is unavailable: {key}")
+        if key.startswith("animated_repair"):
+            parts = [str(params.get("brief", "")), "was refused", str(params["problems"])]
+            return "\n\n".join([*parts, str(params.get("answer", ""))])
         return f"<{key}>{params['format']}"
 
     def complete_json(self, task, system, user, *, route, temperature, max_tokens):
@@ -53,8 +56,8 @@ class _Drawer:
             raise reply
         return reply
 
-    def ports(self) -> StoryPorts:
-        return StoryPorts(
+    def ports(self) -> TextPorts:
+        return TextPorts(
             complete=None, complete_json=self.complete_json, parse_json=json.loads,
             prompt=self.prompt,
             contract=lambda _n: "", language_rule=lambda *_: "", story_budget=lambda _o=None: 0,

@@ -17,15 +17,9 @@ from kinoforge.definitions import DefinitionBundle, DefinitionRenderer
 from kinoforge.inference.charges import InferenceCharges
 from kinoforge.observ import KinoLogger, bind, build_logger, logged, reset
 from kinoforge.schemas import StoryOperation, StoryOperationRequest, StoryWriteRequest
+from kinoforge.segments.common.ports import TextPorts
 from kinoforge.segments.story.agent import Screenwriter, StoryBrief
-from kinoforge.segments.story.explainer.boards import BoardWriter
-from kinoforge.segments.story.explainer.check import BoardCheck
-from kinoforge.segments.story.explainer.elements import ElementDrawer
-from kinoforge.segments.story.explainer.lines import LineDirector
-from kinoforge.segments.story.explainer.set import SetWriter
-from kinoforge.segments.story.explainer.stage import StageWriter
 from kinoforge.segments.story.operations import StoryOperations
-from kinoforge.segments.story.ports import StoryPorts
 from kinoforge.segments.story.run_agent import RunAgent
 from kinoforge.service.meter import EventMeter
 from kinoforge.service.runtimes.text_ports import InfrelayTextPorts
@@ -39,7 +33,7 @@ LANGUAGE_KEY = "prompts.fragments.language"
 class StorySession:
     """One resolved story run: the wired ports plus its per-request logger, meter, and route."""
 
-    ports: StoryPorts
+    ports: TextPorts
     logger: KinoLogger
     meter: EventMeter
     route: ModelRef
@@ -110,7 +104,7 @@ class StoryRuntime:
         logger.info(f"Story stage {index + 1}/{total}: {role}", stage=role)
 
     @staticmethod
-    def _writer_context(ports: StoryPorts, request: StoryWriteRequest) -> dict[str, Any]:
+    def _writer_context(ports: TextPorts, request: StoryWriteRequest) -> dict[str, Any]:
         fields = request.context.model_dump()
         ctx = Screenwriter(ports).build_context(StoryBrief.from_mapping(fields))
         # Caller-set flags the writer reads (e.g. require_motion, so Video Mode always gets
@@ -137,7 +131,6 @@ class StoryRuntime:
     ) -> dict[str, Any]:
         payload = request.payload
         budgets = request.config.get("budgets") or {}
-        tries = BoardCheck.tries(request.config.get("tries"))
         match request.operation:
             case StoryOperation.REWRITE_SCENE:
                 index = payload.get("index")
@@ -178,56 +171,6 @@ class StoryRuntime:
                     dict(payload.get("record") or {}),
                     route,
                     int(budgets.get("rewrite") or 0),
-                )
-            case StoryOperation.WRITE_STAGE:
-                return StageWriter(operations.ports, dict(payload.get("kit") or {})).write(
-                    dict(payload.get("record") or {}), route, int(budgets.get("board") or 0), tries
-                )
-            case StoryOperation.WRITE_SET:
-                return SetWriter(operations.ports, dict(payload.get("kit") or {})).write(
-                    dict(payload.get("record") or {}),
-                    str(payload.get("presenter") or ""),
-                    route,
-                    int(budgets.get("board") or 0),
-                    tries,
-                )
-            case StoryOperation.DIRECT_LINES:
-                draws, per_call = payload.get("draws"), payload.get("per_call")
-                return LineDirector(operations.ports, dict(payload.get("kit") or {})).direct(
-                    dict(payload.get("record") or {}),
-                    dict(payload.get("set") or {}),
-                    str(payload.get("presenter") or ""),
-                    route,
-                    int(budgets.get("board") or 0),
-                    draws if isinstance(draws, int) and not isinstance(draws, bool) else 0,
-                    tries,
-                    per_call if isinstance(per_call, int) and not isinstance(per_call, bool) else 0,
-                )
-            case StoryOperation.DRAW_ELEMENTS:
-                wants = payload.get("wants")
-                return ElementDrawer(operations.ports, dict(payload.get("format") or {})).draw(
-                    wants if isinstance(wants, list) else [],
-                    str(payload.get("topic") or ""),
-                    route,
-                    int(budgets.get("element") or 0),
-                    tries,
-                )
-            case StoryOperation.DRAW_BOARDS:
-                targets = payload.get("targets")
-                fixes = payload.get("fixes")
-                return BoardWriter(operations.ports, dict(payload.get("kit") or {})).draw(
-                    dict(payload.get("record") or {}),
-                    [int(i) for i in targets] if isinstance(targets, list) else None,
-                    route,
-                    int(budgets.get("board") or 0),
-                    {
-                        int(index): [str(problem) for problem in problems][:8]
-                        for index, problems in fixes.items()
-                        if isinstance(problems, list)
-                    }
-                    if isinstance(fixes, dict)
-                    else None,
-                    tries,
                 )
             case StoryOperation.SUGGEST_FIELD:
                 return operations.suggest_field(

@@ -5,8 +5,9 @@ import re
 from collections.abc import Callable
 
 from kinoforge.contract import AITask, MeterAction, ModelRef
-from kinoforge.segments.story.agent import AudienceMode, clean_text
-from kinoforge.segments.story.ports import StoryPorts
+from kinoforge.segments.common.ports import TextPorts
+from kinoforge.segments.common.text import clean_text
+from kinoforge.segments.story.agent import AudienceMode
 from kinoforge.segments.story.quality import StoryQualityGate
 
 StageCallback = Callable[[int, int, str], None]
@@ -113,7 +114,7 @@ class RunAgent:
 
     def __init__(
         self,
-        ports: StoryPorts,
+        ports: TextPorts,
         agent: dict,
         ctx: dict,
         on_stage: StageCallback | None = None,

@@ -7,19 +7,14 @@ breakdown; its strict schema comes from the `contract` fragment. Stage execution
 """
 
 import json
-import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
 from enum import StrEnum
 from typing import Any
 
+from kinoforge.segments.common.languages import language_name
+from kinoforge.segments.common.ports import TextPorts
 from kinoforge.segments.story.formats import VideoAspectRatio, prompt_label
-from kinoforge.segments.story.languages import language_name
-from kinoforge.segments.story.ports import StoryPorts
-
-# Em dash, en dash, horizontal bar: house rule is commas or periods, so every text chokepoint
-# runs generated copy through strip_dashes.
-_DASH_RE = re.compile(r"\s*[—–―]+\s*")
 
 
 class ModelFailure:
@@ -34,15 +29,6 @@ class ModelFailure:
 class AudienceMode(StrEnum):
     GENERAL = "general"
     MATURE = "mature"
-
-
-def strip_dashes(text: str) -> str:
-    """Replace em/en/bar dashes (with any surrounding spaces) by a comma and a space."""
-    return _DASH_RE.sub(", ", text or "")
-
-
-def clean_text(value: object) -> str:
-    return strip_dashes(str(value or "")).strip()
 
 
 @dataclass(frozen=True)
@@ -140,7 +126,7 @@ class BriefText:
 class Screenwriter:
     """Context builder for a story agent, over injected ports."""
 
-    def __init__(self, ports: StoryPorts) -> None:
+    def __init__(self, ports: TextPorts) -> None:
         self.ports = ports
 
     def build_context(self, brief: StoryBrief) -> dict:

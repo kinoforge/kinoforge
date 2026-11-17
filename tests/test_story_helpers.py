@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from kinoforge.segments.story.agent import clean_text, strip_dashes
+from kinoforge.segments.common.text import clean_text, strip_dashes
 from kinoforge.segments.story.operations import StoryOperations
 from kinoforge.segments.story.run_agent import (
     JSON_TEMPERATURE,

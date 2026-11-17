@@ -2,9 +2,10 @@ import json
 import threading
 
 from kinoforge.definitions.models import DefinitionError
-from kinoforge.segments.story.explainer.boards import BoardCheck, BoardWriter
-from kinoforge.segments.story.explainer.stage import StageWriter
-from kinoforge.segments.story.ports import StoryPorts
+from kinoforge.segments.animated.check import BoardCheck
+from kinoforge.segments.animated.explainer.boards import BoardWriter
+from kinoforge.segments.animated.explainer.stage import StageWriter
+from kinoforge.segments.common.ports import TextPorts
 
 SCHEMA = {
     "type": "object",
@@ -29,7 +30,7 @@ SCHEMA = {
         },
     },
 }
-KIT = {"catalog": "PIECES: title", "schema": SCHEMA}
+KIT = {"board": {"format": "PIECES: title"}, "schema": SCHEMA}
 STAGE_SCHEMA = {
     "type": "object",
     "required": ["nodes"],
@@ -40,7 +41,7 @@ STAGE_SCHEMA = {
         }
     },
 }
-STAGED = {**KIT, "stage": {"catalog": "STAGE: nodes", "schema": STAGE_SCHEMA}}
+STAGED = {**KIT, "stage": {"format": "STAGE: nodes", "schema": STAGE_SCHEMA}}
 STAGE = {"nodes": [{"id": "bee", "label": "Bee"}]}
 GOOD = {"mood": "happy", "beats": [{"cue": "bees", "piece": {"type": "title", "text": "Bees"}}]}
 BAD = {"mood": "angry", "beats": []}
@@ -50,6 +51,13 @@ RECORD = {
         "logline": "Why bees matter",
         "scenes": [{"narration": "Bees pollinate."}, {"narration": ""}, {"narration": "Crops."}],
     },
+}
+
+
+SURFACE_TEXTS = {
+    "animated_surface_diagram": "DIAGRAM: show",
+    "animated_surface_road": "ROAD: drive",
+    "animated_surface_map": "MAP: pin",
 }
 
 
@@ -63,7 +71,16 @@ class _Writer:
     def prompt(self, key, **params):
         if key in self.missing:
             raise DefinitionError(f"required agent definition is unavailable: {key}")
-        return f"<{key}>{params['catalog']}"
+        if key.startswith("animated_repair"):
+            parts = [str(params.get("brief", "")), "was refused", str(params["problems"])]
+            return "\n\n".join([*parts, str(params.get("answer", ""))])
+        if key in SURFACE_TEXTS:
+            return SURFACE_TEXTS[key]
+        if key == "animated_stage":
+            return f"<{key}>{params['stage_format']}"
+        icons = [f"ICONS: {params['icons']}"] if "icons" in params else []
+        shown = [params["board_format"], params["surfaces"], *icons]
+        return f"<{key}>" + "\n".join(part for part in shown if part)
 
     def complete_json(self, task, system, user, *, route, temperature, max_tokens):
         scene = json.loads(user.split("\n\n")[0]).get("scene", "stage")
@@ -75,8 +92,8 @@ class _Writer:
             raise reply
         return reply
 
-    def ports(self) -> StoryPorts:
-        return StoryPorts(
+    def ports(self) -> TextPorts:
+        return TextPorts(
             complete=None, complete_json=self.complete_json, parse_json=json.loads,
             prompt=self.prompt,
             contract=lambda _n: "", language_rule=lambda *_: "", story_budget=lambda _o=None: 0,
@@ -89,7 +106,7 @@ def test_every_narrated_scene_gets_a_checked_board():
     assert result["ok"] is True
     assert [b["index"] for b in result["boards"]] == [0, 2]
     assert result["errors"] == []
-    assert all(system == "<explainer_board>PIECES: title" for system, _ in fake.prompts)
+    assert all(system == "<animated_board>PIECES: title" for system, _ in fake.prompts)
 
 
 def test_a_refused_board_goes_back_once_with_what_was_wrong():
@@ -195,7 +212,7 @@ def test_a_staged_kit_writes_the_stage_once_and_hands_it_to_every_board():
     fake = _Writer({"stage": [STAGE], 1: [GOOD], 3: [GOOD]})
     result = BoardWriter(fake.ports(), STAGED).draw(RECORD)
     assert result["stage"] == STAGE
-    briefs = [json.loads(user) for system, user in fake.prompts if system.startswith("<explainer_board>")]
+    briefs = [json.loads(user) for system, user in fake.prompts if system.startswith("<animated_board>")]
     assert len(briefs) == 2 and all(brief["stage"] == STAGE for brief in briefs)
 
 
@@ -203,7 +220,7 @@ def test_boards_get_the_stage_parts_it_has():
     coded = {"nodes": [], "files": [{"id": "stock", "lines": ["class Stock {}"]}]}
     fake = _Writer({"stage": [coded], 1: [GOOD], 3: [GOOD]})
     BoardWriter(fake.ports(), STAGED).draw(RECORD)
-    briefs = [json.loads(user) for system, user in fake.prompts if system.startswith("<explainer_board>")]
+    briefs = [json.loads(user) for system, user in fake.prompts if system.startswith("<animated_board>")]
     assert all(brief["stage"] == {"files": coded["files"]} for brief in briefs)
 
 
@@ -212,43 +229,42 @@ def test_a_story_keeps_its_stage_while_it_still_meets_the_kit():
     fake = _Writer({1: [GOOD], 3: [GOOD]})
     result = BoardWriter(fake.ports(), STAGED).draw(record)
     assert result["stage"] == STAGE
-    assert not any(system.startswith("<explainer_stage>") for system, _ in fake.prompts)
+    assert not any(system.startswith("<animated_stage>") for system, _ in fake.prompts)
 
 
 def test_boards_are_drawn_without_a_stage_when_the_caller_has_no_stage_prompt():
-    fake = _Writer({1: [GOOD], 3: [GOOD]}, missing={"explainer_stage"})
+    fake = _Writer({1: [GOOD], 3: [GOOD]}, missing={"animated_stage"})
     result = BoardWriter(fake.ports(), STAGED).draw(RECORD)
     assert result["ok"] is True and result["stage"] is None
     assert all("stage" not in json.loads(user) for _, user in fake.prompts)
 
 
 PARTED = {
-    "board": "PIECES: title",
     "surfaces": [
-        {"key": "diagram", "part": "nodes", "text": "DIAGRAM: show"},
-        {"key": "road", "part": "road", "text": "ROAD: drive"},
-        {"key": "map", "part": "places", "text": "MAP: pin"},
+        {"key": "diagram", "part": "nodes"},
+        {"key": "road", "part": "road"},
+        {"key": "map", "part": "places"},
     ],
-    "lists": [{"name": "ICONS", "pick": "icons", "keys": ["car", "bee", "map"]}],
+    "lists": [{"name": "icons", "pick": "icons", "keys": ["car", "bee", "map"]}],
 }
 
 
 def test_boards_read_only_the_surfaces_and_icons_their_stage_draws():
     stage = {"nodes": [], "road": {"side": "left"}, "surfaces": ["map"], "icons": ["car", "nope"]}
     fake = _Writer({"stage": [stage], 1: [GOOD], 3: [GOOD]})
-    BoardWriter(fake.ports(), {**STAGED, "catalog": PARTED}).draw(RECORD)
-    boards = [(system, json.loads(user)) for system, user in fake.prompts if system.startswith("<explainer_board>")]
+    BoardWriter(fake.ports(), {**STAGED, **PARTED}).draw(RECORD)
+    boards = [(system, json.loads(user)) for system, user in fake.prompts if system.startswith("<animated_board>")]
     assert all(
-        system == "<explainer_board>PIECES: title\nROAD: drive\nMAP: pin\nICONS: car" for system, _ in boards
+        system == "<animated_board>PIECES: title\nROAD: drive\nMAP: pin\nICONS: car" for system, _ in boards
     )
     assert all(brief["stage"] == {"road": {"side": "left"}} for _, brief in boards)
 
 
 def test_a_stage_that_names_no_surfaces_keeps_the_whole_catalog():
     fake = _Writer({"stage": [STAGE], 1: [GOOD], 3: [GOOD]})
-    BoardWriter(fake.ports(), {**STAGED, "catalog": PARTED}).draw(RECORD)
-    systems = {system for system, _ in fake.prompts if system.startswith("<explainer_board>")}
-    assert systems == {"<explainer_board>PIECES: title\nDIAGRAM: show\nROAD: drive\nMAP: pin\nICONS: car, bee, map"}
+    BoardWriter(fake.ports(), {**STAGED, **PARTED}).draw(RECORD)
+    systems = {system for system, _ in fake.prompts if system.startswith("<animated_board>")}
+    assert systems == {"<animated_board>PIECES: title\nDIAGRAM: show\nROAD: drive\nMAP: pin\nICONS: car, bee, map"}
 
 
 REFS = {
@@ -292,7 +308,7 @@ def test_a_refused_stage_fails_the_boards_instead_of_drawing_without_it():
     fake = _Writer({"stage": [{"nodes": "x"}, {"nodes": "x"}]})
     result = BoardWriter(fake.ports(), STAGED).draw(RECORD)
     assert result["ok"] is False and result["error"].startswith("the stage was refused")
-    assert not any(system.startswith("<explainer_board>") for system, _ in fake.prompts)
+    assert not any(system.startswith("<animated_board>") for system, _ in fake.prompts)
 
 
 def test_fixes_send_the_drawn_board_back_with_what_did_not_fit():
@@ -317,13 +333,13 @@ def test_a_fix_the_writer_cannot_make_keeps_the_board_it_drew():
 def test_write_stage_returns_the_stage_alone():
     fake = _Writer({"stage": [STAGE]})
     assert StageWriter(fake.ports(), STAGED).write(RECORD, None, 0) == {"ok": True, "stage": STAGE}
-    assert not any(system.startswith("<explainer_board>") for system, _ in fake.prompts)
+    assert not any(system.startswith("<animated_board>") for system, _ in fake.prompts)
 
 
 def test_an_empty_optional_stage_part_is_left_out_instead_of_refused():
     road = {"type": "object", "required": ["side"], "properties": {"side": {"enum": ["left"]}}}
     schema = {**STAGE_SCHEMA, "properties": {**STAGE_SCHEMA["properties"], "road": road}}
-    kit = {**KIT, "stage": {"catalog": "STAGE: nodes", "schema": schema}}
+    kit = {**KIT, "stage": {"format": "STAGE: nodes", "schema": schema}}
     fake = _Writer({"stage": [{**STAGE, "road": {}, "places": None}]})
     result = StageWriter(fake.ports(), kit).write(RECORD, None, 0, tries=1)
     assert result == {"ok": True, "stage": STAGE}
@@ -345,7 +361,7 @@ def test_the_stage_reads_the_makers_brief_beside_the_narration():
 
 
 def test_write_stage_fails_without_a_stage_prompt():
-    fake = _Writer({}, missing={"explainer_stage"})
+    fake = _Writer({}, missing={"animated_stage"})
     result = StageWriter(fake.ports(), STAGED).write(RECORD, None, 0)
     assert result["ok"] is False and "stage prompt" in result["error"]
 
@@ -354,9 +370,9 @@ def test_boards_list_the_store_items_the_caller_resolved_for_the_stage():
     stage = {"nodes": [], "surfaces": [], "icons": ["car", "postgresql", "nope"]}
     record = {**RECORD, "story": {**RECORD["story"], "stage": stage, "elements": {"postgresql": {}}}}
     fake = _Writer({1: [GOOD], 3: [GOOD]})
-    BoardWriter(fake.ports(), {**STAGED, "catalog": PARTED}).draw(record)
-    systems = {system for system, _ in fake.prompts if system.startswith("<explainer_board>")}
-    assert systems == {"<explainer_board>PIECES: title\nICONS: car, postgresql"}
+    BoardWriter(fake.ports(), {**STAGED, **PARTED}).draw(record)
+    systems = {system for system, _ in fake.prompts if system.startswith("<animated_board>")}
+    assert systems == {"<animated_board>PIECES: title\nICONS: car, postgresql"}
 
 
 FILED_SCHEMA = {
@@ -373,7 +389,7 @@ FILED_SCHEMA = {
         },
     },
 }
-FILED = {**KIT, "stage": {"catalog": "STAGE: nodes, files", "schema": FILED_SCHEMA}}
+FILED = {**KIT, "stage": {"format": "STAGE: nodes, files", "schema": FILED_SCHEMA}}
 COMPOSE = {
     "id": "compose",
     "name": "docker-compose.yml",

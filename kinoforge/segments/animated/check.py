@@ -1,13 +1,13 @@
-"""A writer's answer against the kit's JSON schema: the problems a writer can fix, by where
-they are, and the prompt that sends them back."""
-
 import json
 from collections.abc import Callable, Iterable, Mapping
 
 from jsonschema import Draft202012Validator, ValidationError, validators
 
 from kinoforge.contract import AITask, ModelRef
-from kinoforge.segments.story.ports import Chat, StoryPorts
+from kinoforge.segments.common.ports import Chat, TextPorts
+
+REPAIR_KEY = "animated_repair"
+TURN_KEY = "animated_repair_turn"
 
 
 class StageIds:
@@ -15,7 +15,9 @@ class StageIds:
 
     def __init__(self, stage: Mapping) -> None:
         self.ids = {
-            str(part): [str(item["id"]) for item in items if isinstance(item, Mapping) and item.get("id")]
+            str(part): [
+                str(item["id"]) for item in items if isinstance(item, Mapping) and item.get("id")
+            ]
             for part, items in stage.items()
             if isinstance(items, list)
         }
@@ -27,7 +29,9 @@ class StageIds:
         if instance in known:
             return
         if not known:
-            yield ValidationError(f"{instance!r} is not on the STAGE, which has no {part}: leave this piece out")
+            yield ValidationError(
+                f"{instance!r} is not on the STAGE, which has no {part}: leave this piece out"
+            )
             return
         yield ValidationError(
             f"{instance!r} is not on the STAGE; use one of: {', '.join(known[: self.SHOWN])}"
@@ -36,6 +40,7 @@ class StageIds:
 
 class BoardCheck:
     TRIES = 2
+    MOST = 8
 
     def __init__(
         self, schema: Mapping, name: str = "board", stage: Mapping | None = None, ref: str = ""
@@ -57,15 +62,19 @@ class BoardCheck:
             or not (value is None or (isinstance(value, dict) and not value))
         }
 
-    def problems(self, answer: object, limit: int = 8) -> list[str]:
+    def problems(self, answer: object, limit: int = MOST) -> list[str]:
         found = self._validator.iter_errors(answer)
         errors = [inner for error in found for inner in self._inside(error)]
         errors.sort(key=lambda error: [str(part) for part in error.absolute_path])
-        return [f"{self._where(error.absolute_path)}: {self._plain(error)}" for error in errors[:limit]]
+        return [
+            f"{self._where(error.absolute_path)}: {self._plain(error)}" for error in errors[:limit]
+        ]
 
     @classmethod
     def tries(cls, asked: object) -> int:
-        return max(1, asked) if isinstance(asked, int) and not isinstance(asked, bool) else cls.TRIES
+        return (
+            max(1, asked) if isinstance(asked, int) and not isinstance(asked, bool) else cls.TRIES
+        )
 
     @staticmethod
     def refused(answer: object) -> dict:
@@ -90,8 +99,6 @@ class BoardCheck:
 
     @staticmethod
     def _inside(error: ValidationError) -> list[ValidationError]:
-        """A piece that fits none of the kinds says only that; the errors of the kind its `type`
-        names are the ones its writer can fix, and a `type` naming no kind gets the kinds listed."""
         if error.validator not in ("oneOf", "anyOf") or not error.context:
             return [error]
         kinds: dict[object, list[ValidationError]] = {}
@@ -105,31 +112,44 @@ class BoardCheck:
         if len(named) == 1:
             return named[0]
         if not named and isinstance(error.instance, dict):
-            kinds_named = sorted({str(sub.validator_value) for sub in error.context if sub.validator == "const"})
+            kinds_named = sorted(
+                {str(sub.validator_value) for sub in error.context if sub.validator == "const"}
+            )
             error.message = (
                 f"type {error.instance.get('type')!r} is not a piece kind; use one of: "
                 + ", ".join(kinds_named)
             )
         return [error]
 
-    def repair(self, brief: str, answer: object, problems: list[str]) -> str:
-        listed = "\n".join(f"- {problem}" for problem in problems)
-        return (
-            f"{brief}\n\nYour {self.name} was refused:\n{listed}\n\n"
-            f"Your {self.name}:\n{json.dumps(answer, ensure_ascii=False)}\n\n"
-            f"Return the corrected {self.name} only, as STRICT JSON."
-        )
-
-    def follow_up(self, problems: list[str]) -> str:
-        listed = "\n".join(f"- {problem}" for problem in problems)
-        return (
-            f"Your {self.name} was refused:\n{listed}\n\n"
-            f"Return the corrected {self.name} only, as STRICT JSON."
-        )
-
     def _where(self, path: Iterable[object]) -> str:
         parts = [f"[{part}]" if isinstance(part, int) else f".{part}" for part in path]
         return self.name + "".join(parts)
+
+
+class Repair:
+    def __init__(self, ports: TextPorts, name: str) -> None:
+        self.ports = ports
+        self.name = name
+
+    def again(self, brief: str, answer: object, problems: list[str]) -> str:
+        return self.ports.prompt(
+            REPAIR_KEY,
+            brief=brief,
+            name=self.name,
+            problems=self.listed(problems),
+            answer=json.dumps(answer, ensure_ascii=False),
+        )
+
+    def turn(self, problems: list[str]) -> str:
+        return self.ports.prompt(TURN_KEY, name=self.name, problems=self.listed(problems))
+
+    @staticmethod
+    def listed(problems: list[str]) -> str:
+        return "\n".join(f"- {problem}" for problem in problems)
+
+    @staticmethod
+    def unread(error: json.JSONDecodeError) -> list[str]:
+        return [f"the answer was not valid JSON ({error})"]
 
 
 class KitRefused(RuntimeError):
@@ -139,10 +159,11 @@ class KitRefused(RuntimeError):
 
 
 class KitAsk:
-    def __init__(self, ports: StoryPorts, check: BoardCheck, temperature: float) -> None:
+    def __init__(self, ports: TextPorts, check: BoardCheck, temperature: float) -> None:
         self.ports = ports
         self.check = check
         self.temperature = temperature
+        self.repair = Repair(ports, check.name)
 
     def ask(
         self,
@@ -159,7 +180,7 @@ class KitAsk:
         for attempt in range(max(1, tries)):
             try:
                 if chat is None:
-                    prompt = brief if attempt == 0 else self.check.repair(brief, drawn, problems)
+                    prompt = brief if attempt == 0 else self.repair.again(brief, drawn, problems)
                     answer = self.ports.complete_json(
                         AITask.STORY_BOARD,
                         system,
@@ -171,20 +192,20 @@ class KitAsk:
                 else:
                     answer = chat.ask(
                         AITask.STORY_BOARD,
-                        brief if attempt == 0 else self.check.follow_up(problems),
+                        brief if attempt == 0 else self.repair.turn(problems),
                         route=route or ModelRef(),
                         temperature=self.temperature,
                         max_tokens=max_tokens,
                     )
             except json.JSONDecodeError as error:
-                drawn, problems = None, [f"the answer was not valid JSON ({error})"]
+                drawn, problems = None, Repair.unread(error)
                 continue
             drawn = self.check.trimmed(
                 answer.get(self.check.name, answer) if isinstance(answer, dict) else answer
             )
             problems = self.check.problems(drawn)
             if not problems and isinstance(drawn, dict):
-                problems = more(drawn)
+                problems = more(drawn)[: BoardCheck.MOST]
             if not problems and isinstance(drawn, dict):
                 return drawn
         refused = problems[0] if problems else "not an object"

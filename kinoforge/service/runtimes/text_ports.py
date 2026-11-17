@@ -1,4 +1,4 @@
-"""Adapts an Infrelay text client + resolved definitions into the StoryPorts a story or series
+"""Adapts an Infrelay text client + resolved definitions into the TextPorts a story or series
 stage consumes. Series passes no fragment keys, so its contract/language_rule raise."""
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from kinoforge.definitions.models import DefinitionKind
 from kinoforge.inference import InfrelayClient
 from kinoforge.inference.infrelay import InfrelayError
 from kinoforge.observ import active
-from kinoforge.segments.story.ports import Chat, StoryPorts
+from kinoforge.segments.common.ports import Chat, TextPorts
 
 _TRAILING_COMMA = re.compile(r",\s*([}\]])")
 
@@ -40,8 +40,8 @@ class InfrelayTextPorts:
         self._language_key = language_key
         self._languages = dict(languages or {})
 
-    def to_ports(self) -> StoryPorts:
-        return StoryPorts(
+    def to_ports(self) -> TextPorts:
+        return TextPorts(
             complete=self.complete, complete_json=self.complete_json,
             parse_json=self.parse_json, prompt=self.prompt, contract=self.contract,
             language_rule=self.language_rule, story_budget=self.story_budget,

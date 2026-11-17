@@ -6,7 +6,7 @@ import json
 from typing import List
 
 from kinoforge.contract import ModelRef
-from kinoforge.segments.story.ports import StoryPorts
+from kinoforge.segments.common.ports import TextPorts
 from kinoforge.segments.story.run_agent import RunAgent
 
 _CTX = {
@@ -31,8 +31,8 @@ class _Ports:
         return text, {"input_tokens": 3, "output_tokens": 5, "model": route.model or "m",
                       "finish_reason": finish}
 
-    def ports(self) -> StoryPorts:
-        return StoryPorts(
+    def ports(self) -> TextPorts:
+        return TextPorts(
             complete=self.complete, complete_json=None, parse_json=json.loads,
             prompt=lambda key, **_: f"<{key}>", contract=lambda _n: "CONTRACT",
             language_rule=lambda *_: "", story_budget=lambda _o=None: 100,

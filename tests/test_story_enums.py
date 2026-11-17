@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from kinoforge.segments.common.languages import language_name, whisper_code
 from kinoforge.segments.story.audio_modes import (
     SceneAudioMode,
     clear_voiceover,
@@ -12,12 +13,10 @@ from kinoforge.segments.story.audio_modes import (
 from kinoforge.segments.story.formats import (
     VideoAspectRatio,
     dimensions,
+    normalize,
     project_aspect,
     prompt_label,
-    normalize,
 )
-from kinoforge.segments.story.languages import language_name, whisper_code
-
 
 # --- audio modes ----------------------------------------------------------
 

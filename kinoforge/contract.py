@@ -176,6 +176,7 @@ class JobKind(StrEnum):
     CLIPS = "clips"
     SERIES = "series"
     STORY = "story"
+    ANIMATED = "animated"
 
 
 class MeterAction(StrEnum):

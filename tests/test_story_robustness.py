@@ -7,8 +7,8 @@ import json
 import pytest
 
 from kinoforge.contract import MeterAction
+from kinoforge.segments.common.ports import TextPorts
 from kinoforge.segments.story.operations import StoryOperations, Suggestion
-from kinoforge.segments.story.ports import StoryPorts
 from kinoforge.segments.story.run_agent import JSON_TEMPERATURE, TEXT_TEMPERATURE, RunAgent
 
 _CTX = {"title": "T", "description": "", "output_format": "v", "language_rule": "",
@@ -33,8 +33,8 @@ class _Fake:
             raise reply
         return reply, dict(self.usage)
 
-    def ports(self) -> StoryPorts:
-        return StoryPorts(
+    def ports(self) -> TextPorts:
+        return TextPorts(
             complete=self.complete, complete_json=None, parse_json=json.loads,
             prompt=lambda key, **_: f"<{key}>", contract=lambda _n: "C",
             language_rule=lambda *_: "", story_budget=lambda _o=None: 100,
@@ -83,7 +83,7 @@ def test_missing_token_counts_do_not_crash_the_run():
 def test_suggestion_kinds_come_from_one_enum():
     assert Suggestion.of("title") is Suggestion.TITLE
     assert Suggestion.of("headline") is None
-    ports = StoryPorts(complete=None, complete_json=None, parse_json=json.loads,
+    ports = TextPorts(complete=None, complete_json=None, parse_json=json.loads,
                        prompt=lambda key, **_: key, contract=lambda _n: "",
                        language_rule=lambda *_: "", story_budget=lambda _o=None: 0)
     assert StoryOperations(ports).suggest_field("headline")["error"] == "unknown suggestion kind"

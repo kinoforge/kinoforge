@@ -7,11 +7,11 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
+from kinoforge.segments.common.ports import TextPorts
 from kinoforge.segments.story.media.ceiling import PromptCeiling
 from kinoforge.segments.story.media.images import ImagePainter
 from kinoforge.segments.story.media.prompt_text import PromptText
 from kinoforge.segments.story.operations import StoryOperations
-from kinoforge.segments.story.ports import StoryPorts
 from kinoforge.segments.story.run_agent import RunAgent, StoryShape
 from kinoforge.service.runtimes.text_ports import InfrelayTextPorts
 
@@ -19,11 +19,11 @@ _STAGE = {"format": "story_json", "role": "writer"}
 _CTX = {"title": "T", "description": "", "output_format": "vertical", "language_rule": ""}
 
 
-def _ports(reply: str) -> StoryPorts:
+def _ports(reply: str) -> TextPorts:
     def complete(purpose, system, user, *, route, temperature, max_tokens):
         return reply, {"input_tokens": 1, "output_tokens": 1, "model": "m"}
 
-    return StoryPorts(
+    return TextPorts(
         complete=complete, complete_json=None, parse_json=json.loads,
         prompt=lambda key, **_: f"<{key}>", contract=lambda _n: "C",
         language_rule=lambda *_: "", story_budget=lambda _o=None: 100,
@@ -150,7 +150,7 @@ def test_rewrite_uses_the_same_voice_as_writing():
         captured["system"] = system
         return {"prompt": "p", "narration": "n"}
 
-    ports = StoryPorts(
+    ports = TextPorts(
         complete=None, complete_json=complete_json, parse_json=json.loads,
         prompt=lambda key, **_: f"<{key}>", contract=lambda _n: "",
         language_rule=lambda *_: "", story_budget=lambda _o=None: 0,

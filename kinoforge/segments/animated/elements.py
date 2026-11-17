@@ -6,11 +6,11 @@ from dataclasses import dataclass
 from kinoforge.contract import AITask, ModelRef
 from kinoforge.definitions.models import DefinitionError
 from kinoforge.observ import with_context
-from kinoforge.segments.story.agent import clean_text
-from kinoforge.segments.story.explainer.check import BoardCheck
-from kinoforge.segments.story.ports import StoryPorts
+from kinoforge.segments.animated.check import BoardCheck, Repair
+from kinoforge.segments.common.ports import TextPorts
+from kinoforge.segments.common.text import clean_text
 
-PROMPT_KEY = "explainer_element"
+PROMPT_KEY = "animated_element"
 
 
 @dataclass(frozen=True)
@@ -32,11 +32,13 @@ class ElementDrawer:
     TEMPERATURE = 0.3
     MOST = 12
     WORD = 60
+    NAME = "drawing"
 
-    def __init__(self, ports: StoryPorts, form: Mapping) -> None:
+    def __init__(self, ports: TextPorts, form: Mapping) -> None:
         self.ports = ports
         self.schema = dict(form.get("schema") or {})
         self.total = int((form.get("limits") or {}).get("total") or 0)
+        self.repair = Repair(ports, self.NAME)
 
     def draw(
         self,
@@ -50,12 +52,14 @@ class ElementDrawer:
         if not asked:
             return {"ok": False, "error": "no pictures to draw"}
         if not self.schema or self.total <= 0:
-            return {"ok": False, "error": "the explainer kit has no element format"}
+            return {"ok": False, "error": "the animated kit has no element format"}
         try:
-            system = self.ports.prompt(PROMPT_KEY, format=json.dumps(self.schema, ensure_ascii=False))
+            system = self.ports.prompt(
+                PROMPT_KEY, format=json.dumps(self.schema, ensure_ascii=False)
+            )
         except DefinitionError:
             return {"ok": False, "error": "the drawing prompt is missing"}
-        check = BoardCheck(self.schema, "drawing")
+        check = BoardCheck(self.schema, self.NAME)
         topic = clean_text(topic)
         with ThreadPoolExecutor(max_workers=min(self.WORKERS, len(asked))) as pool:
             jobs = [
@@ -93,14 +97,18 @@ class ElementDrawer:
         drawn: object = None
         problems: list[str] = []
         for attempt in range(max(1, tries)):
-            prompt = brief if attempt == 0 else check.repair(brief, drawn, problems)
+            prompt = brief if attempt == 0 else self.repair.again(brief, drawn, problems)
             try:
                 answer = self.ports.complete_json(
-                    AITask.STORY_ELEMENT, system, prompt, route=route or ModelRef(),
-                    temperature=self.TEMPERATURE, max_tokens=max_tokens,
+                    AITask.STORY_ELEMENT,
+                    system,
+                    prompt,
+                    route=route or ModelRef(),
+                    temperature=self.TEMPERATURE,
+                    max_tokens=max_tokens,
                 )
             except json.JSONDecodeError as error:
-                drawn, problems = None, [f"the answer was not valid JSON ({error})"]
+                drawn, problems = None, Repair.unread(error)
                 continue
             except Exception as error:
                 return Drawing(want, None, f"the drawing model failed: {error}")

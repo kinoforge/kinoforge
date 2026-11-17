@@ -184,10 +184,11 @@ def test_ai_without_route_leaves_the_model_to_the_gateway():
 
 # --- catalog ---------------------------------------------------------------
 
-def test_catalog_lists_three_segments_with_paths_and_planned_assembly():
+def test_catalog_lists_four_segments_with_paths_and_planned_assembly():
     segments = {s.code_name: s for s in SegmentCatalog.list().segments}
-    assert set(segments) == {JobKind.CLIPS, JobKind.STORY, JobKind.SERIES}
+    assert set(segments) == {JobKind.CLIPS, JobKind.STORY, JobKind.ANIMATED, JobKind.SERIES}
     assert segments[JobKind.CLIPS].execute_path == "/v1/segments/clips/execute"
+    assert segments[JobKind.ANIMATED].execute_path == "/v1/segments/animated/operate"
     story = {f.code_name: f.status for f in segments[JobKind.STORY].features}
     assert story["video-assembly"] is SegmentStatus.PLANNED
     assert story["story-writing"] is SegmentStatus.AVAILABLE

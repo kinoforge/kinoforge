@@ -6,13 +6,13 @@ import json
 from typing import List
 
 from kinoforge.contract import ImageSpec, ModelRef, VideoSpec
+from kinoforge.segments.common.ports import TextPorts
 from kinoforge.segments.story.agent import Screenwriter, StoryBrief
 from kinoforge.segments.story.media.ceiling import PromptCeiling
 from kinoforge.segments.story.media.images import ImagePainter
 from kinoforge.segments.story.media.music import MusicComposer
 from kinoforge.segments.story.media.videos import ClipMaker
 from kinoforge.segments.story.operations import StoryOperations
-from kinoforge.segments.story.ports import StoryPorts
 from kinoforge.segments.story.run_agent import RunAgent, StoryShape
 
 
@@ -32,8 +32,8 @@ class _Text:
         return json.loads(self.complete(purpose, system, user, route=route,
                                         temperature=temperature, max_tokens=max_tokens)[0])
 
-    def ports(self) -> StoryPorts:
-        return StoryPorts(
+    def ports(self) -> TextPorts:
+        return TextPorts(
             complete=self.complete, complete_json=self.complete_json, parse_json=json.loads,
             prompt=lambda key, **_: f"<{key}>", contract=lambda _n: "",
             language_rule=lambda _subject, _language: "RULE",
@@ -246,7 +246,7 @@ def test_an_episode_brief_reads_as_plain_sections():
 def test_the_idea_prompt_gets_the_brief():
     seen = {}
     ports = _Text().ports()
-    ports = StoryPorts(**{**ports.__dict__, "prompt": lambda key, **values: seen.update(values) or key})
+    ports = TextPorts(**{**ports.__dict__, "prompt": lambda key, **values: seen.update(values) or key})
     RunAgent(ports, {"stages": []}, {"title": "T", "description": "", "scene_count": 3,
                                      "output_format": "video", "brief": "DETAILS:\nx"})._idea()
     assert seen["brief"] == "DETAILS:\nx"

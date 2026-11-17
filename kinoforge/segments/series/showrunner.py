@@ -2,13 +2,13 @@ import json
 from typing import Dict, Optional
 
 from kinoforge.contract import AITask, MeterAction, ModelRef
+from kinoforge.segments.common.ports import TextPorts
 from kinoforge.segments.story.agent import ModelFailure
 from kinoforge.segments.story.formats import prompt_label
-from kinoforge.segments.story.ports import StoryPorts
 
 
 class Showrunner:
-    def __init__(self, ports: StoryPorts) -> None:
+    def __init__(self, ports: TextPorts) -> None:
         self.ports = ports
 
     def plan(self, series: Dict, count: int = 6, route: Optional[ModelRef] = None) -> Dict:

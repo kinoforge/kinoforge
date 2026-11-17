@@ -1,8 +1,9 @@
 import json
 
 from kinoforge.definitions.models import DefinitionError
-from kinoforge.segments.story.explainer.lines import LineDirector
-from kinoforge.segments.story.ports import StoryPorts
+from kinoforge.segments.animated.skit.lines import LineDirector
+from kinoforge.segments.animated.skit.rules import LineRules
+from kinoforge.segments.common.ports import TextPorts
 
 REF = "x-ref"
 LINE = {
@@ -27,9 +28,10 @@ LINE = {
 }
 KIT = {
     "ref": REF,
-    "draws": ["beside", "full"],
+    "words": {"draws": ["beside", "full"], "places": ["left", "center", "right"]},
     "direction": {
-        "catalog": "LINES",
+        "format": "LINES",
+        "changes": ["{do: tag}"],
         "schema": {
             "type": "object",
             "required": ["lines"],
@@ -61,14 +63,18 @@ class _Writer:
     def prompt(self, key, **params):
         if key in self.missing:
             raise DefinitionError(f"required agent definition is unavailable: {key}")
-        return f"<{key}>{params['catalog']}"
+        if key.startswith("animated_repair"):
+            return "\n".join(
+                str(params[name]) for name in ("brief", "problems", "answer") if name in params
+            ) + "\nwas refused"
+        return f"<{key}>{params['direction_format']} {params['changes']}"
 
     def complete_json(self, task, system, user, *, route, temperature, max_tokens):
         self.prompts.append((system, user))
         return self.replies.pop(0)
 
-    def ports(self) -> StoryPorts:
-        return StoryPorts(
+    def ports(self) -> TextPorts:
+        return TextPorts(
             complete=None,
             complete_json=self.complete_json,
             parse_json=json.loads,
@@ -101,8 +107,8 @@ def test_every_scene_gets_a_line_spoken_by_its_cast_member():
     assert result["lines"][3] == {"speaker": "leo"}
     sent = json.loads(fake.prompts[0][1])
     assert sent["script"][0] == {"line": 1, "speaker": "mia", "text": "Tea is better."}
-    assert sent["draws"] == "at most 1 lines draw, never the first"
-    assert fake.prompts[0][0] == "<explainer_lines>LINES"
+    assert sent["draws"] == {"most": 1}
+    assert fake.prompts[0][0] == "<animated_lines>LINES {do: tag}"
 
 
 def test_the_director_reads_what_the_script_has_each_speaker_do():
@@ -162,7 +168,7 @@ def test_without_a_cast_or_the_prompt_nothing_is_directed():
         LineDirector(fake.ports(), KIT).direct(RECORD, {"cast": []}, "cast", None, 0, 1)["ok"]
         is False
     )
-    fake = _Writer([], missing={"explainer_lines"})
+    fake = _Writer([], missing={"animated_lines"})
     result = LineDirector(fake.ports(), KIT).direct(RECORD, SET, "cast", None, 0, 1)
     assert result == {"ok": False, "error": "the lines prompt is missing"}
 
@@ -174,14 +180,19 @@ def test_a_speaker_still_off_the_set_walks_on_to_their_place_at_their_line():
             {"id": "leo", "place": "right", "enters": True},
         ]
     }
-    lines = [
-        {"speaker": "mia", "acts": [{"who": "mia", "pose": "arms_up"}]},
-        {"speaker": "leo", "acts": [{"who": "mia", "pose": "think"}]},
-        {"speaker": "mia"},
-        {"speaker": "leo", "acts": [{"who": "leo", "move": "off"}]},
-        {"speaker": "leo"},
+    script = [
+        ("mia", {"acts": [{"who": "mia", "pose": "arms_up"}]}),
+        ("leo", {"acts": [{"who": "mia", "pose": "think"}]}),
+        ("mia", {}),
+        ("leo", {"acts": [{"who": "leo", "move": "off"}]}),
+        ("leo", {}),
     ]
-    staged = LineDirector.staged(lines, drawn)
+    rules = LineRules(drawn, ["left", "center", "right"])
+    at = dict(rules.start)
+    staged = []
+    for speaker, item in script:
+        line, at = rules.played(item, speaker, at)
+        staged.append(line)
     assert staged[0]["acts"] == [{"who": "mia", "pose": "arms_up", "move": "left"}]
     assert staged[1]["acts"][0] == {"who": "leo", "move": "right"}
     assert "acts" not in staged[2]
@@ -198,7 +209,7 @@ class _Chatty(_Writer):
         self.fail = fail
 
     def open_chat(self, system):
-        from kinoforge.segments.story.ports import Chat
+        from kinoforge.segments.common.ports import Chat
 
         self.opened.append(system)
 
@@ -213,7 +224,7 @@ class _Chatty(_Writer):
 
         return Chat(ask=ask, close=close)
 
-    def ports(self) -> StoryPorts:
+    def ports(self) -> TextPorts:
         from dataclasses import replace
 
         return replace(super().ports(), open_chat=self.open_chat)

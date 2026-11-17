@@ -1,15 +1,15 @@
 import json
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 
 from kinoforge.contract import ModelRef
 from kinoforge.definitions.models import DefinitionError
-from kinoforge.segments.story.agent import clean_text
-from kinoforge.segments.story.explainer.check import BoardCheck, KitAsk, KitRefused
-from kinoforge.segments.story.languages import language_name
-from kinoforge.segments.story.ports import StoryPorts
+from kinoforge.segments.animated.check import BoardCheck, KitAsk, KitRefused
+from kinoforge.segments.animated.prompts import FilmLanguage, KitWords
+from kinoforge.segments.animated.skit.rules import CAST, SetRules
+from kinoforge.segments.common.ports import TextPorts
+from kinoforge.segments.common.text import clean_text
 
-PROMPT_KEY = "explainer_set"
-CAST = "cast"
+PROMPT_KEY = "animated_set"
 
 
 class ScriptUtils:
@@ -22,12 +22,15 @@ class ScriptUtils:
 
 class SetWriter:
     TEMPERATURE = 0.5
+    NAME = "set"
 
-    def __init__(self, ports: StoryPorts, kit: Mapping) -> None:
+    def __init__(self, ports: TextPorts, kit: Mapping, empty: Iterable[object] = ()) -> None:
         part = kit.get("set") or {}
         self.ports = ports
-        self.catalog = str(part.get("catalog") or "")
-        self.check = BoardCheck(part.get("schema") or {}, "set") if self.catalog else None
+        self.kit = kit
+        self.format = str(part.get("format") or "")
+        self.check = BoardCheck(part.get("schema") or {}, self.NAME) if self.format else None
+        self.rules = SetRules(kit, empty)
 
     def write(
         self,
@@ -44,17 +47,15 @@ class SetWriter:
         if (
             isinstance(kept, dict)
             and not self.check.problems(kept)
-            and not self.missing(kept, story, presenter)
+            and not self.rules.problems(kept, story, presenter)
         ):
             return {"ok": True, "set": kept}
-        language = str((rec.get("input") or {}).get("language") or "")
         try:
             system = self.ports.prompt(
                 PROMPT_KEY,
-                catalog=self.catalog,
-                language_rule=self.ports.language_rule(
-                    "roles and card text", language_name(language, self.ports.languages)
-                ),
+                set_format=self.format,
+                language_rule=FilmLanguage.rule(self.ports, rec, "roles and card text"),
+                **KitWords.params(self.kit),
             )
         except DefinitionError:
             return {"ok": False, "error": "the set prompt is missing"}
@@ -65,35 +66,11 @@ class SetWriter:
                 route,
                 max_tokens,
                 tries,
-                lambda answer: self.missing(answer, story, presenter),
+                lambda answer: self.rules.problems(answer, story, presenter),
             )
         except KitRefused as error:
             return {"ok": False, "error": str(error), **BoardCheck.refused(error.answer)}
         return {"ok": True, "set": drawn}
-
-    @staticmethod
-    def missing(drawn: Mapping, story: Mapping, presenter: str) -> list[str]:
-        cast = [member for member in drawn.get("cast") or [] if isinstance(member, Mapping)]
-        ids = [str(member.get("id") or "") for member in cast]
-        problems = []
-        if len(set(ids)) != len(ids):
-            problems.append("set.cast: every cast member needs an id of their own")
-        if presenter != CAST:
-            if len(cast) != 1:
-                problems.append(f"set.cast: has {len(cast)}, the presenter alone is a cast of one")
-            return problems
-        names = {clean_text(member.get("name")).casefold() for member in cast}
-        speakers = dict.fromkeys(
-            clean_text(scene.get("speaker"))
-            for scene in story.get("scenes") or []
-            if isinstance(scene, Mapping) and clean_text(scene.get("speaker"))
-        )
-        for speaker in speakers:
-            if speaker.casefold() not in names:
-                problems.append(
-                    f"set.cast: {speaker!r} speaks in the script; add them by that name"
-                )
-        return problems
 
     @staticmethod
     def brief(rec: dict, presenter: str) -> str:

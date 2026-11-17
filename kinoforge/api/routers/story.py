@@ -51,12 +51,11 @@ def write_story(request: StoryWriteRequest):
 
 @router.post(
     "/v1/segments/story/operate",
-    summary="Edit, translate, direct or draw an existing story",
+    summary="Edit, translate or direct an existing story",
     description=(
         "Runs one stateless Story operation from frozen definitions: rewrite_scene, "
-        "rewrite_characters, translate, direct_shots, write_stage (an explainer's stage), "
-        "draw_elements (pictures the stage could not find) or "
-        "draw_boards (an explainer board per scene). Caller persists returned changes."
+        "rewrite_characters, translate, direct_shots, summarize_episode or suggest_field. "
+        "Caller persists returned changes."
     ),
     response_model=StoryOperationResponse,
     responses=Operations.RESPONSES,

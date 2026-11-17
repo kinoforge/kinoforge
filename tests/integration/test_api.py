@@ -33,11 +33,11 @@ def test_health_is_public_and_ok(client):
     assert r.json() == {"ok": True, "service": "kinoforge", "version": "0.1.0"}
 
 
-def test_segments_lists_three_available_segments(client):
+def test_segments_lists_four_available_segments(client):
     r = client.get("/v1/segments")
     assert r.status_code == 200
     segments = r.json()["segments"]
-    assert {s["code_name"] for s in segments} == {"clips", "story", "series"}
+    assert {s["code_name"] for s in segments} == {"clips", "story", "animated", "series"}
     assert all(s["status"] in {"available", "planned"} for s in segments)
 
 

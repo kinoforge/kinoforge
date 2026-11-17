@@ -1,32 +1,28 @@
-"""An explainer's stage: the diagram nodes, code files, road side and map places every board of one
-video uses, and the surfaces and icons they draw, written once from the whole narration so boards
-drawn side by side name the same parts. Its format comes from the caller's kit; a kit without a
-stage, or a caller without the stage prompt, draws boards without one."""
-
 import json
 from collections.abc import Mapping
 
 from kinoforge.contract import ModelRef
 from kinoforge.definitions.models import DefinitionError
-from kinoforge.segments.story.agent import clean_text
-from kinoforge.segments.story.explainer.check import BoardCheck, KitAsk, KitRefused
-from kinoforge.segments.story.languages import language_name
-from kinoforge.segments.story.ports import StoryPorts
+from kinoforge.segments.animated.check import BoardCheck, KitAsk, KitRefused
+from kinoforge.segments.animated.prompts import FilmLanguage
+from kinoforge.segments.common.ports import TextPorts
+from kinoforge.segments.common.text import clean_text
 
-PROMPT_KEY = "explainer_stage"
+PROMPT_KEY = "animated_stage"
 
 
 class StageWriter:
     TEMPERATURE = 0.4
     FILES = "files"
+    NAME = "stage"
 
-    def __init__(self, ports: StoryPorts, kit: Mapping) -> None:
+    def __init__(self, ports: TextPorts, kit: Mapping) -> None:
         stage = kit.get("stage") or {}
         schema = stage.get("schema") or {}
         files = (schema.get("properties") or {}).get(self.FILES) or {}
         self.ports = ports
-        self.catalog = str(stage.get("catalog") or "")
-        self.check = BoardCheck(schema, "stage") if self.catalog else None
+        self.format = str(stage.get("format") or "")
+        self.check = BoardCheck(schema, self.NAME) if self.format else None
         self.most_files = int(files.get("maxItems") or 0)
 
     def write(
@@ -43,7 +39,6 @@ class StageWriter:
     def stage(
         self, rec: dict, route: ModelRef | None, max_tokens: int, tries: int = BoardCheck.TRIES
     ) -> dict | None:
-        """The story's stage when it still meets the kit, else a new one; None without one."""
         if self.check is None:
             return None
         given = self.given(rec)
@@ -51,20 +46,16 @@ class StageWriter:
         kept = story.get("stage")
         if isinstance(kept, dict) and not self.check.problems(self.own(kept, given)):
             return self.joined(kept, given)
-        language = str((rec.get("input") or {}).get("language") or "")
         try:
             system = self.ports.prompt(
                 PROMPT_KEY,
-                catalog=self.catalog,
-                language_rule=self.ports.language_rule(
-                    "node labels", language_name(language, self.ports.languages)
-                ),
+                stage_format=self.format,
+                language_rule=FilmLanguage.rule(self.ports, rec, "node labels"),
             )
         except DefinitionError:
             return None
-        brief = self._brief(rec, given)
         written = KitAsk(self.ports, self.check, self.TEMPERATURE).ask(
-            system, brief, route, max_tokens, tries
+            system, self._brief(rec, given), route, max_tokens, tries
         )
         return self.joined(self.own(written, given), given)
 
@@ -85,7 +76,8 @@ class StageWriter:
             return stage
         ids = {item["id"] for item in given}
         files = [
-            item for item in stage.get(cls.FILES) or []
+            item
+            for item in stage.get(cls.FILES) or []
             if not (isinstance(item, Mapping) and item.get("id") in ids)
         ]
         out = {key: value for key, value in stage.items() if key != cls.FILES}

@@ -80,11 +80,6 @@ class StoryOperation(StrEnum):
     REWRITE_CHARACTERS = "rewrite_characters"
     TRANSLATE = "translate"
     DIRECT_SHOTS = "direct_shots"
-    DRAW_BOARDS = "draw_boards"
-    WRITE_STAGE = "write_stage"
-    DRAW_ELEMENTS = "draw_elements"
-    WRITE_SET = "write_set"
-    DIRECT_LINES = "direct_lines"
     SUGGEST_FIELD = "suggest_field"
     SUMMARIZE_EPISODE = "summarize_episode"
 
@@ -100,16 +95,7 @@ class StoryOperationRequest(OperationRequest):
     payload: dict[str, Any] = Field(
         default_factory=dict,
         description=(
-            "Operation input: project/story, scene index, language, or instructions; "
-            "draw_boards also takes the explainer kit ({catalog, schema}), scene targets and "
-            "fixes ({scene index: problems}) that send a drawn board back to its writer; "
-            "write_stage takes the record and the kit and returns the video's stage alone; "
-            "draw_elements takes wants ([{word, for}]), the topic and the kit's element format "
-            "({schema, limits}) and returns a checked shape per picture; "
-            "write_set takes the record, the skit kit and the presenter (stick or cast) and returns "
-            "the set; direct_lines also takes that set, draws (how many lines may draw) and "
-            "per_call (lines directed per turn of one conversation, 0 for one call) and returns "
-            "one checked line per scene."
+            "Operation input: project/story, scene index, language, or instructions."
         ),
     )
     agent: dict[str, Any] = Field(default_factory=dict)

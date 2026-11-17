@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 
+from kinoforge.segments.common.ports import TextPorts
 from kinoforge.segments.story.operations import StoryOperations
-from kinoforge.segments.story.ports import StoryPorts
 
 DASH = chr(0x2014)
 
@@ -32,8 +32,8 @@ class _Ports:
         self.values = values
         return f"<{key}> {values['title']} {values['scenes']}"
 
-    def ports(self) -> StoryPorts:
-        return StoryPorts(
+    def ports(self) -> TextPorts:
+        return TextPorts(
             complete=self.complete, complete_json=None, parse_json=json.loads,
             prompt=self.prompt,
             contract=lambda _n: "", language_rule=lambda *_: "", story_budget=lambda _o=None: 0,

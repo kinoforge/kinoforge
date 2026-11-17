@@ -9,8 +9,8 @@ def test_shot_start_keeps_only_known_answers():
 
 
 def test_the_shot_plan_lists_the_length_a_scene_asks_for():
+    from kinoforge.segments.common.ports import TextPorts
     from kinoforge.segments.story.operations import StoryOperations
-    from kinoforge.segments.story.ports import StoryPorts
 
     sent: dict = {}
 
@@ -18,7 +18,7 @@ def test_the_shot_plan_lists_the_length_a_scene_asks_for():
         sent.update(params)
         return key
 
-    ports = StoryPorts(
+    ports = TextPorts(
         complete=None, parse_json=None, contract=None, language_rule=None, story_budget=None,
         prompt=prompt, complete_json=lambda *_a, **_k: {"shots": [{"action": "a"}, {"action": "b"}]},
     )

@@ -1,8 +1,8 @@
 import json
 
 from kinoforge.definitions.models import DefinitionError
-from kinoforge.segments.story.explainer.set import SetWriter
-from kinoforge.segments.story.ports import StoryPorts
+from kinoforge.segments.animated.skit.set import SetWriter
+from kinoforge.segments.common.ports import TextPorts
 
 SET_SCHEMA = {
     "type": "object",
@@ -20,7 +20,7 @@ SET_SCHEMA = {
         }
     },
 }
-KIT = {"set": {"catalog": "SET: cast", "schema": SET_SCHEMA}}
+KIT = {"set": {"format": "SET: cast", "schema": SET_SCHEMA}}
 MIA = {"id": "mia", "name": "Mia"}
 LEO = {"id": "leo", "name": "Leo"}
 RECORD = {
@@ -48,7 +48,11 @@ class _Writer:
     def prompt(self, key, **params):
         if key in self.missing:
             raise DefinitionError(f"required agent definition is unavailable: {key}")
-        return f"<{key}>{params['catalog']}"
+        if key.startswith("animated_repair"):
+            return "\n".join(
+                str(params[name]) for name in ("brief", "problems", "answer") if name in params
+            ) + "\nwas refused"
+        return f"<{key}>{params['set_format']}"
 
     def complete_json(self, task, system, user, *, route, temperature, max_tokens):
         self.prompts.append((system, user))
@@ -57,8 +61,8 @@ class _Writer:
             raise reply
         return reply
 
-    def ports(self) -> StoryPorts:
-        return StoryPorts(
+    def ports(self) -> TextPorts:
+        return TextPorts(
             complete=None,
             complete_json=self.complete_json,
             parse_json=json.loads,
@@ -77,7 +81,7 @@ def test_a_cast_set_names_everyone_who_speaks():
     assert sent["presenter"] == "cast"
     assert [c["name"] for c in sent["characters"]] == ["Mia", "Leo"]
     assert sent["script"][1] == {"speaker": "Leo", "text": "Coffee wins."}
-    assert fake.prompts[0][0] == "<explainer_set>SET: cast"
+    assert fake.prompts[0][0] == "<animated_set>SET: cast"
 
 
 def test_a_speaker_left_out_goes_back_with_their_name():
@@ -140,6 +144,6 @@ def test_an_answer_that_is_not_json_is_tried_again():
 
 def test_without_the_kit_or_the_prompt_there_is_no_set():
     assert SetWriter(_Writer([]).ports(), {}).write(RECORD, "cast", None, 0)["ok"] is False
-    fake = _Writer([], missing={"explainer_set"})
+    fake = _Writer([], missing={"animated_set"})
     result = SetWriter(fake.ports(), KIT).write(RECORD, "cast", None, 0)
     assert result == {"ok": False, "error": "the set prompt is missing"}

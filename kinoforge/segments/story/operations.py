@@ -3,10 +3,11 @@ import re
 from enum import Enum
 
 from kinoforge.contract import AITask, ModelRef, ShotStart
-from kinoforge.segments.story.agent import ModelFailure, clean_text, strip_dashes
+from kinoforge.segments.common.languages import known_language, language_name
+from kinoforge.segments.common.ports import TextPorts
+from kinoforge.segments.common.text import clean_text, strip_dashes
+from kinoforge.segments.story.agent import ModelFailure
 from kinoforge.segments.story.formats import normalize
-from kinoforge.segments.story.languages import known_language, language_name
-from kinoforge.segments.story.ports import StoryPorts
 
 
 class Suggestion(Enum):
@@ -26,7 +27,7 @@ class Suggestion(Enum):
 
 
 class StoryOperations:
-    def __init__(self, ports: StoryPorts) -> None:
+    def __init__(self, ports: TextPorts) -> None:
         self.ports = ports
 
     def _ask_json(
