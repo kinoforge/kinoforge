@@ -237,3 +237,17 @@ def test_a_kit_without_listed_acts_lets_every_act_through():
     rules = LineRules(SET, KIT["words"]["places"])
     items = [{"line": 1, "acts": [{"who": "mia", "act": "shrug"}]}]
     assert rules.problems(items, SPEAKERS, rules.start, (1, 1)) == []
+
+
+def test_a_line_can_only_take_away_a_prop_that_stands_on_the_set():
+    drawn = {**SET, "props": [{"kind": "taxi", "spot": "back_right"}]}
+    rules = LineRules(drawn, KIT["words"]["places"])
+    items = [{"line": 1, "gone": ["taxi", "bus"]}]
+    assert rules.problems(items, SPEAKERS, rules.start, (1, 1)) == [
+        "direction.lines[0].gone[1]: 'bus' is not a prop on the set; use one of taxi "
+        "or leave gone out"
+    ]
+    line, _ = rules.played({"gone": ["taxi", "bus"]}, "mia", rules.start)
+    assert line == {"gone": ["taxi"]}
+    line, _ = rules.played({"gone": ["bus"]}, "mia", rules.start)
+    assert line == {}

@@ -138,6 +138,11 @@ class LineRules:
         cast = [member for member in drawn_set.get("cast") or [] if isinstance(member, Mapping)]
         self.homes = {str(member.get("id")): str(member.get("place") or HOME) for member in cast}
         self.card = isinstance(drawn_set.get("card"), Mapping)
+        self.props = [
+            str(prop.get("kind"))
+            for prop in drawn_set.get("props") or []
+            if isinstance(prop, Mapping) and prop.get("kind")
+        ]
         self.spots = [str(spot) for spot in spots]
         self.start = {
             who: OFF if member.get("enters") else self.homes[who]
@@ -160,6 +165,7 @@ class LineRules:
             if item.get("card") and not self.card:
                 found.append(f"{where}.card: the set has no card; leave card out")
             found += self.unplayable(item, where)
+            found += self.unknown_gone(item, where)
             moves = self.moves(item, speakers[number - 1], now)
             for who, place, other in self.clashes(now, moves):
                 act = self._act(item, who)
@@ -174,6 +180,9 @@ class LineRules:
         line = {key: value for key, value in item.items() if key != "line"}
         if not self.card:
             line.pop("card", None)
+        gone = [kind for kind in line.pop("gone", None) or [] if str(kind) in self.props]
+        if gone:
+            line["gone"] = gone
         acts = [
             self.playable_only(act) for act in line.get("acts") or [] if isinstance(act, Mapping)
         ]
@@ -202,6 +211,15 @@ class LineRules:
             if isinstance(act, Mapping)
             for field, allowed in self.playable.items()
             if act.get(field) and str(act[field]) not in allowed
+        ]
+
+    def unknown_gone(self, item: Mapping, where: str) -> list[str]:
+        listed = ", ".join(self.props) or "none"
+        return [
+            f"{where}.gone[{i}]: {kind!r} is not a prop on the set; use one of {listed} "
+            "or leave gone out"
+            for i, kind in enumerate(item.get("gone") or [])
+            if str(kind) not in self.props
         ]
 
     def playable_only(self, act: Mapping) -> dict:
