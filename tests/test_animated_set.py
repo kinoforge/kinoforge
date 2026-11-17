@@ -49,9 +49,12 @@ class _Writer:
         if key in self.missing:
             raise DefinitionError(f"required agent definition is unavailable: {key}")
         if key.startswith("animated_repair"):
-            return "\n".join(
-                str(params[name]) for name in ("brief", "problems", "answer") if name in params
-            ) + "\nwas refused"
+            return (
+                "\n".join(
+                    str(params[name]) for name in ("brief", "problems", "answer") if name in params
+                )
+                + "\nwas refused"
+            )
         return f"<{key}>{params['set_format']}"
 
     def complete_json(self, task, system, user, *, route, temperature, max_tokens):
@@ -75,7 +78,7 @@ class _Writer:
 
 def test_a_cast_set_names_everyone_who_speaks():
     fake = _Writer([{"set": {"cast": [MIA, LEO]}}])
-    result = SetWriter(fake.ports(), KIT).write(RECORD, "cast", None, 0)
+    result = SetWriter(fake.ports(), KIT, "animated_set").write(RECORD, "cast", None, 0)
     assert result == {"ok": True, "set": {"cast": [MIA, LEO]}}
     sent = json.loads(fake.prompts[0][1])
     assert sent["presenter"] == "cast"
@@ -86,14 +89,14 @@ def test_a_cast_set_names_everyone_who_speaks():
 
 def test_a_speaker_left_out_goes_back_with_their_name():
     fake = _Writer([{"cast": [MIA]}, {"cast": [MIA, LEO]}])
-    result = SetWriter(fake.ports(), KIT).write(RECORD, "cast", None, 0)
+    result = SetWriter(fake.ports(), KIT, "animated_set").write(RECORD, "cast", None, 0)
     assert result["ok"] is True
     assert "'Leo' speaks in the script" in fake.prompts[1][1]
 
 
 def test_a_stick_presenter_is_a_cast_of_one():
     fake = _Writer([{"cast": [MIA, LEO]}, {"cast": [MIA]}])
-    result = SetWriter(fake.ports(), KIT).write(RECORD, "stick", None, 0)
+    result = SetWriter(fake.ports(), KIT, "animated_set").write(RECORD, "stick", None, 0)
     assert result == {"ok": True, "set": {"cast": [MIA]}}
     assert "the presenter alone is a cast of one" in fake.prompts[1][1]
     assert json.loads(fake.prompts[0][1])["characters"] == []
@@ -101,7 +104,7 @@ def test_a_stick_presenter_is_a_cast_of_one():
 
 def test_cast_ids_must_differ():
     fake = _Writer([{"cast": [MIA, {"id": "mia", "name": "Leo"}]}])
-    result = SetWriter(fake.ports(), KIT).write(RECORD, "cast", None, 0, tries=1)
+    result = SetWriter(fake.ports(), KIT, "animated_set").write(RECORD, "cast", None, 0, tries=1)
     assert result["ok"] is False
     assert "an id of their own" in result["error"]
     assert result["answer"] == {"cast": [MIA, {"id": "mia", "name": "Leo"}]}
@@ -112,7 +115,7 @@ def test_the_set_writer_reads_what_the_script_puts_in_hand():
     scenes[0]["prompt"] = "Mia waves a toothbrush."
     record = {**RECORD, "story": {**RECORD["story"], "scenes": scenes}}
     fake = _Writer([{"set": {"cast": [MIA, LEO]}}])
-    SetWriter(fake.ports(), KIT).write(record, "cast", None, 0)
+    SetWriter(fake.ports(), KIT, "animated_set").write(record, "cast", None, 0)
     sent = json.loads(fake.prompts[0][1])
     assert sent["script"][0]["does"] == "Mia waves a toothbrush."
     assert "does" not in sent["script"][1]
@@ -121,7 +124,7 @@ def test_the_set_writer_reads_what_the_script_puts_in_hand():
 def test_a_set_that_still_fits_is_kept():
     record = {**RECORD, "story": {**RECORD["story"], "set": {"cast": [MIA, LEO]}}}
     fake = _Writer([])
-    assert SetWriter(fake.ports(), KIT).write(record, "cast", None, 0) == {
+    assert SetWriter(fake.ports(), KIT, "animated_set").write(record, "cast", None, 0) == {
         "ok": True,
         "set": {"cast": [MIA, LEO]},
     }
@@ -131,19 +134,22 @@ def test_a_set_that_still_fits_is_kept():
 def test_a_kept_set_missing_a_speaker_is_written_again():
     record = {**RECORD, "story": {**RECORD["story"], "set": {"cast": [MIA]}}}
     fake = _Writer([{"cast": [MIA, LEO]}])
-    assert SetWriter(fake.ports(), KIT).write(record, "cast", None, 0)["set"] == {
+    assert SetWriter(fake.ports(), KIT, "animated_set").write(record, "cast", None, 0)["set"] == {
         "cast": [MIA, LEO]
     }
 
 
 def test_an_answer_that_is_not_json_is_tried_again():
     fake = _Writer([json.JSONDecodeError("bad", "x", 0), {"cast": [MIA, LEO]}])
-    assert SetWriter(fake.ports(), KIT).write(RECORD, "cast", None, 0)["ok"] is True
+    assert SetWriter(fake.ports(), KIT, "animated_set").write(RECORD, "cast", None, 0)["ok"] is True
     assert "not valid JSON" in fake.prompts[1][1]
 
 
 def test_without_the_kit_or_the_prompt_there_is_no_set():
-    assert SetWriter(_Writer([]).ports(), {}).write(RECORD, "cast", None, 0)["ok"] is False
+    assert (
+        SetWriter(_Writer([]).ports(), {}, "animated_set").write(RECORD, "cast", None, 0)["ok"]
+        is False
+    )
     fake = _Writer([], missing={"animated_set"})
-    result = SetWriter(fake.ports(), KIT).write(RECORD, "cast", None, 0)
+    result = SetWriter(fake.ports(), KIT, "animated_set").write(RECORD, "cast", None, 0)
     assert result == {"ok": False, "error": "the set prompt is missing"}

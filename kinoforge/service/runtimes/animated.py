@@ -43,9 +43,7 @@ class AnimatedRuntime:
             label=JobKind.ANIMATED.value,
             meter=meter,
             language_key=LANGUAGE_KEY,
-            languages={
-                str(k): str(v) for k, v in (request.config.get("languages") or {}).items()
-            },
+            languages={str(k): str(v) for k, v in (request.config.get("languages") or {}).items()},
         ).to_ports()
         logger = build_logger(
             job_id=request.project_id,
@@ -85,7 +83,9 @@ class AnimatedRuntime:
                 )
             case AnimatedOperation.DRAW_ELEMENTS:
                 wants = payload.get("wants")
-                return ElementDrawer(ports, dict(payload.get("format") or {})).draw(
+                return ElementDrawer(
+                    ports, dict(payload.get("format") or {}), cls._prompt(payload)
+                ).draw(
                     wants if isinstance(wants, list) else [],
                     str(payload.get("topic") or ""),
                     route,
@@ -94,11 +94,11 @@ class AnimatedRuntime:
                 )
             case AnimatedOperation.WRITE_SET:
                 empty = request.config.get("empty_words")
-                return SetWriter(ports, kit, empty if isinstance(empty, list) else []).write(
-                    record, str(payload.get("presenter") or ""), route, board, tries
-                )
+                return SetWriter(
+                    ports, kit, cls._prompt(payload), empty if isinstance(empty, list) else []
+                ).write(record, str(payload.get("presenter") or ""), route, board, tries)
             case AnimatedOperation.DIRECT_LINES:
-                return LineDirector(ports, kit).direct(
+                return LineDirector(ports, kit, cls._prompt(payload)).direct(
                     record,
                     dict(payload.get("set") or {}),
                     str(payload.get("presenter") or ""),
@@ -110,6 +110,10 @@ class AnimatedRuntime:
                 )
             case unreachable:
                 assert_never(unreachable)
+
+    @staticmethod
+    def _prompt(payload: dict[str, Any]) -> str:
+        return str(payload.get("prompt") or "")
 
     @staticmethod
     def _whole(value: object) -> int:

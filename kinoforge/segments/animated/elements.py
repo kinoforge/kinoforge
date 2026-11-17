@@ -10,8 +10,6 @@ from kinoforge.segments.animated.check import BoardCheck, Repair
 from kinoforge.segments.common.ports import TextPorts
 from kinoforge.segments.common.text import clean_text
 
-PROMPT_KEY = "animated_element"
-
 
 @dataclass(frozen=True)
 class Want:
@@ -34,8 +32,9 @@ class ElementDrawer:
     WORD = 60
     NAME = "drawing"
 
-    def __init__(self, ports: TextPorts, form: Mapping) -> None:
+    def __init__(self, ports: TextPorts, form: Mapping, prompt: str) -> None:
         self.ports = ports
+        self.prompt = prompt
         self.schema = dict(form.get("schema") or {})
         self.total = int((form.get("limits") or {}).get("total") or 0)
         self.repair = Repair(ports, self.NAME)
@@ -51,11 +50,11 @@ class ElementDrawer:
         asked = self._wants(wants)
         if not asked:
             return {"ok": False, "error": "no pictures to draw"}
-        if not self.schema or self.total <= 0:
+        if not self.schema:
             return {"ok": False, "error": "the animated kit has no element format"}
         try:
             system = self.ports.prompt(
-                PROMPT_KEY, format=json.dumps(self.schema, ensure_ascii=False)
+                self.prompt, format=json.dumps(self.schema, ensure_ascii=False)
             )
         except DefinitionError:
             return {"ok": False, "error": "the drawing prompt is missing"}
@@ -122,7 +121,7 @@ class ElementDrawer:
     def _size(self, drawn: object) -> list[str]:
         parts = drawn.get("parts") if isinstance(drawn, dict) else None
         used = sum(len(str(part.get("d") or "")) for part in parts or [] if isinstance(part, dict))
-        if used > self.total:
+        if self.total and used > self.total:
             return [f"drawing.parts: the paths hold {used} characters, at most {self.total}"]
         return []
 

@@ -17,9 +17,11 @@ class Words:
 
 
 class SetRules:
-    PICTURES = ("holds", "hat", "head")
-
     def __init__(self, kit: Mapping, empty: Iterable[object] = ()) -> None:
+        pictures = kit.get("pictures")
+        self.pictures = (
+            tuple(str(field) for field in pictures) if isinstance(pictures, Mapping) else ()
+        )
         furniture = kit.get("furniture")
         self.furniture = {
             str(backdrop): {Words.key(word) for word in words}
@@ -67,7 +69,7 @@ class SetRules:
         found = [
             f"set.cast[{i}].{field}: {member[field]!r} names nothing; leave {field} out"
             for i, member in enumerate(cast)
-            for field in self.PICTURES
+            for field in self.pictures
             if self._nothing(member.get(field))
         ]
         found += [
@@ -114,7 +116,9 @@ class SetRules:
     @staticmethod
     def _props(drawn: Mapping) -> list[tuple[int, Mapping]]:
         return [
-            (i, prop) for i, prop in enumerate(drawn.get("props") or []) if isinstance(prop, Mapping)
+            (i, prop)
+            for i, prop in enumerate(drawn.get("props") or [])
+            if isinstance(prop, Mapping)
         ]
 
 

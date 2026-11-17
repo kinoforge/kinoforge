@@ -11,8 +11,6 @@ from kinoforge.segments.animated.skit.set import ScriptUtils
 from kinoforge.segments.common.ports import TextPorts
 from kinoforge.segments.common.text import clean_text
 
-PROMPT_KEY = "animated_lines"
-
 
 class LineDirector:
     TEMPERATURE = 0.5
@@ -20,10 +18,11 @@ class LineDirector:
     FILM = "\n\nTHE FILM\n"
     CHANGES = " | "
 
-    def __init__(self, ports: TextPorts, kit: Mapping) -> None:
+    def __init__(self, ports: TextPorts, kit: Mapping, prompt: str) -> None:
         part = kit.get("direction") or {}
         words = kit.get("words") or {}
         self.ports = ports
+        self.prompt = prompt
         self.kit = kit
         self.format = str(part.get("format") or "")
         self.changes = self.CHANGES.join(str(change) for change in part.get("changes") or [])
@@ -53,7 +52,7 @@ class LineDirector:
         speakers = [self.speaker(scene, cast) for scene in scenes]
         try:
             system = self.ports.prompt(
-                PROMPT_KEY,
+                self.prompt,
                 direction_format=self.format,
                 changes=self.changes,
                 language_rule=FilmLanguage.rule(self.ports, rec, "card text"),
@@ -126,7 +125,9 @@ class LineDirector:
     def chunks(self, count: int, per_call: int) -> list[tuple[int, int]]:
         if per_call <= 0 or count <= per_call or self.ports.open_chat is None:
             return [(1, count)]
-        return [(first, min(count, first + per_call - 1)) for first in range(1, count + 1, per_call)]
+        return [
+            (first, min(count, first + per_call - 1)) for first in range(1, count + 1, per_call)
+        ]
 
     @classmethod
     def clashes(

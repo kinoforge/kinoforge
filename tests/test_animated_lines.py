@@ -64,9 +64,12 @@ class _Writer:
         if key in self.missing:
             raise DefinitionError(f"required agent definition is unavailable: {key}")
         if key.startswith("animated_repair"):
-            return "\n".join(
-                str(params[name]) for name in ("brief", "problems", "answer") if name in params
-            ) + "\nwas refused"
+            return (
+                "\n".join(
+                    str(params[name]) for name in ("brief", "problems", "answer") if name in params
+                )
+                + "\nwas refused"
+            )
         return f"<{key}>{params['direction_format']} {params['changes']}"
 
     def complete_json(self, task, system, user, *, route, temperature, max_tokens):
@@ -87,7 +90,7 @@ class _Writer:
 
 def _direct(replies, presenter="cast", draws=1, tries=2, record=RECORD):
     fake = _Writer(replies)
-    return fake, LineDirector(fake.ports(), KIT).direct(
+    return fake, LineDirector(fake.ports(), KIT, "animated_lines").direct(
         record, SET, presenter, None, 0, draws, tries
     )
 
@@ -165,11 +168,15 @@ def test_no_lines_at_all_fails_with_the_answer():
 def test_without_a_cast_or_the_prompt_nothing_is_directed():
     fake = _Writer([])
     assert (
-        LineDirector(fake.ports(), KIT).direct(RECORD, {"cast": []}, "cast", None, 0, 1)["ok"]
+        LineDirector(fake.ports(), KIT, "animated_lines").direct(
+            RECORD, {"cast": []}, "cast", None, 0, 1
+        )["ok"]
         is False
     )
     fake = _Writer([], missing={"animated_lines"})
-    result = LineDirector(fake.ports(), KIT).direct(RECORD, SET, "cast", None, 0, 1)
+    result = LineDirector(fake.ports(), KIT, "animated_lines").direct(
+        RECORD, SET, "cast", None, 0, 1
+    )
     assert result == {"ok": False, "error": "the lines prompt is missing"}
 
 
@@ -237,14 +244,26 @@ def _talk(n):
 
 
 def _lines(first, last, pose="talk"):
-    return {"lines": [{"line": n, "acts": [{"who": "mia", "pose": pose}]} for n in range(first, last + 1)]}
+    return {
+        "lines": [
+            {"line": n, "acts": [{"who": "mia", "pose": pose}]} for n in range(first, last + 1)
+        ]
+    }
 
 
 def test_a_long_script_is_directed_a_few_lines_a_turn_in_one_conversation():
     fake = _Chatty([_lines(1, 2), _lines(3, 4, "shrug"), _lines(5, 5)])
-    result = LineDirector(fake.ports(), KIT).direct(_talk(5), SET, "cast", None, 0, 0, 2, 2)
+    result = LineDirector(fake.ports(), KIT, "animated_lines").direct(
+        _talk(5), SET, "cast", None, 0, 0, 2, 2
+    )
     assert result["ok"] is True and len(result["lines"]) == 5
-    assert [line["acts"][0]["pose"] for line in result["lines"]] == ["talk", "talk", "shrug", "shrug", "talk"]
+    assert [line["acts"][0]["pose"] for line in result["lines"]] == [
+        "talk",
+        "talk",
+        "shrug",
+        "shrug",
+        "talk",
+    ]
     assert [json.loads(turn)["direct"] for turn in fake.turns] == [
         {"from": 1, "to": 2},
         {"from": 3, "to": 4},
@@ -256,14 +275,23 @@ def test_a_long_script_is_directed_a_few_lines_a_turn_in_one_conversation():
 
 def test_a_turn_answering_lines_outside_its_span_keeps_only_its_own():
     fake = _Chatty([_lines(1, 3, "shrug"), _lines(3, 4)])
-    result = LineDirector(fake.ports(), KIT).direct(_talk(4), SET, "cast", None, 0, 0, 2, 2)
-    assert [line["acts"][0]["pose"] for line in result["lines"]] == ["shrug", "shrug", "talk", "talk"]
+    result = LineDirector(fake.ports(), KIT, "animated_lines").direct(
+        _talk(4), SET, "cast", None, 0, 0, 2, 2
+    )
+    assert [line["acts"][0]["pose"] for line in result["lines"]] == [
+        "shrug",
+        "shrug",
+        "talk",
+        "talk",
+    ]
 
 
 def test_a_refused_turn_is_corrected_in_the_same_conversation():
     bad = {"lines": [{"line": 1, "acts": [{"who": "zed"}]}, {"line": 2}]}
     fake = _Chatty([bad, _lines(1, 2), _lines(3, 3)])
-    result = LineDirector(fake.ports(), KIT).direct(_talk(3), SET, "cast", None, 0, 0, 2, 2)
+    result = LineDirector(fake.ports(), KIT, "animated_lines").direct(
+        _talk(3), SET, "cast", None, 0, 0, 2, 2
+    )
     assert result["ok"] is True and not result["errors"]
     assert "was refused" in fake.turns[1] and "zed" in fake.turns[1]
     assert '"script"' not in fake.turns[1]
@@ -271,7 +299,9 @@ def test_a_refused_turn_is_corrected_in_the_same_conversation():
 
 def test_a_script_that_fits_one_call_is_directed_without_a_conversation():
     fake = _Chatty([_lines(1, 4)])
-    result = LineDirector(fake.ports(), KIT).direct(_talk(4), SET, "cast", None, 0, 0, 2, 10)
+    result = LineDirector(fake.ports(), KIT, "animated_lines").direct(
+        _talk(4), SET, "cast", None, 0, 0, 2, 10
+    )
     assert result["ok"] is True and not fake.opened and len(fake.prompts) == 1
 
 
@@ -280,5 +310,7 @@ def test_the_conversation_is_closed_when_a_turn_fails():
 
     fake = _Chatty([], fail=True)
     with pytest.raises(RuntimeError, match="infrelay down"):
-        LineDirector(fake.ports(), KIT).direct(_talk(4), SET, "cast", None, 0, 0, 2, 2)
+        LineDirector(fake.ports(), KIT, "animated_lines").direct(
+            _talk(4), SET, "cast", None, 0, 0, 2, 2
+        )
     assert fake.closed == 1

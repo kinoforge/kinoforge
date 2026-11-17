@@ -9,8 +9,6 @@ from kinoforge.segments.animated.skit.rules import CAST, SetRules
 from kinoforge.segments.common.ports import TextPorts
 from kinoforge.segments.common.text import clean_text
 
-PROMPT_KEY = "animated_set"
-
 
 class ScriptUtils:
     @staticmethod
@@ -24,9 +22,12 @@ class SetWriter:
     TEMPERATURE = 0.5
     NAME = "set"
 
-    def __init__(self, ports: TextPorts, kit: Mapping, empty: Iterable[object] = ()) -> None:
+    def __init__(
+        self, ports: TextPorts, kit: Mapping, prompt: str, empty: Iterable[object] = ()
+    ) -> None:
         part = kit.get("set") or {}
         self.ports = ports
+        self.prompt = prompt
         self.kit = kit
         self.format = str(part.get("format") or "")
         self.check = BoardCheck(part.get("schema") or {}, self.NAME) if self.format else None
@@ -52,7 +53,7 @@ class SetWriter:
             return {"ok": True, "set": kept}
         try:
             system = self.ports.prompt(
-                PROMPT_KEY,
+                self.prompt,
                 set_format=self.format,
                 language_rule=FilmLanguage.rule(self.ports, rec, "roles and card text"),
                 **KitWords.params(self.kit),

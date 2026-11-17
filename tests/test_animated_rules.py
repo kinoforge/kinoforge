@@ -9,6 +9,7 @@ KIT = {
     "ref": "x-ref",
     "words": {"draws": ["beside", "full"], "places": ["left", "center", "right"]},
     "furniture": {"office": ["window", "clock"], "plain": []},
+    "pictures": {"hat": [], "head": [], "holds": [], "kind": [], "icon": []},
     "set": {"format": "SET", "schema": {"type": "object", "required": ["cast"]}},
     "direction": {
         "format": "LINES",
@@ -103,7 +104,7 @@ def test_a_set_with_a_semantic_problem_goes_back_in_the_same_loop():
     bad = {"cast": [{**MIA, "holds": "none"}, LEO]}
     good = {"cast": [MIA, LEO]}
     fake = _Writer([bad, good])
-    result = SetWriter(fake.ports(), KIT, EMPTY).write(RECORD, "cast", None, 0)
+    result = SetWriter(fake.ports(), KIT, "animated_set", EMPTY).write(RECORD, "cast", None, 0)
     assert result == {"ok": True, "set": good}
     assert "set.cast[0].holds: 'none' names nothing" in fake.prompts[1][1]
 
@@ -112,9 +113,9 @@ def test_a_kept_set_with_a_semantic_problem_is_written_again():
     kept = {"cast": [MIA, {**LEO, "place": "left"}]}
     record = {**RECORD, "story": {**STORY, "set": kept}}
     fake = _Writer([{"cast": [MIA, LEO]}])
-    assert SetWriter(fake.ports(), KIT, EMPTY).write(record, "cast", None, 0)["set"] == {
-        "cast": [MIA, LEO]
-    }
+    assert SetWriter(fake.ports(), KIT, "animated_set", EMPTY).write(record, "cast", None, 0)[
+        "set"
+    ] == {"cast": [MIA, LEO]}
 
 
 SET = {"cast": [MIA, LEO]}
@@ -135,9 +136,7 @@ def test_a_move_onto_a_place_someone_holds_is_refused():
 
 
 def test_two_people_may_swap_places_or_follow_someone_who_left():
-    swap = [
-        {"line": 1, "acts": [{"who": "mia", "move": "right"}, {"who": "leo", "move": "left"}]}
-    ]
+    swap = [{"line": 1, "acts": [{"who": "mia", "move": "right"}, {"who": "leo", "move": "left"}]}]
     assert _line_problems(swap) == []
     follow = [
         {"line": 1, "acts": [{"who": "mia", "move": "off"}]},
@@ -186,7 +185,9 @@ def test_a_clash_goes_back_to_the_director_in_the_same_loop():
     bad = {"lines": [{"line": 1, "acts": [{"who": "leo", "move": "left"}]}]}
     good = {"lines": [{"line": 1, "acts": [{"who": "leo", "move": "center"}]}]}
     fake = _Writer([bad, good])
-    result = LineDirector(fake.ports(), KIT).direct(RECORD, SET, "cast", None, 0, 0)
+    result = LineDirector(fake.ports(), KIT, "animated_lines").direct(
+        RECORD, SET, "cast", None, 0, 0
+    )
     assert result["ok"] is True and result["errors"] == []
     assert result["lines"][0]["acts"] == [{"who": "leo", "move": "center"}]
     assert "leo moves to left where mia stands" in fake.prompts[1][1]
@@ -197,14 +198,19 @@ def test_a_clash_or_a_card_change_left_after_the_tries_never_reaches_the_film():
         "lines": [
             {
                 "line": 1,
-                "acts": [{"who": "leo", "move": "left", "pose": "talk"}, {"who": "mia", "move": "left"}],
+                "acts": [
+                    {"who": "leo", "move": "left", "pose": "talk"},
+                    {"who": "mia", "move": "left"},
+                ],
                 "card": [{"do": "tag", "text": "tea"}],
             },
             {"line": 2, "acts": [{"who": "leo", "move": "center"}]},
         ]
     }
     fake = _Writer([bad])
-    result = LineDirector(fake.ports(), KIT).direct(RECORD, SET, "cast", None, 0, 0, tries=1)
+    result = LineDirector(fake.ports(), KIT, "animated_lines").direct(
+        RECORD, SET, "cast", None, 0, 0, tries=1
+    )
     assert result["ok"] is True
     assert result["lines"][0] == {"acts": [{"who": "leo", "pose": "talk"}], "speaker": "mia"}
     assert result["lines"][1]["acts"] == [{"who": "leo", "move": "center"}]

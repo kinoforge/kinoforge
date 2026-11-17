@@ -58,16 +58,22 @@ class _Drawer:
 
     def ports(self) -> TextPorts:
         return TextPorts(
-            complete=None, complete_json=self.complete_json, parse_json=json.loads,
+            complete=None,
+            complete_json=self.complete_json,
+            parse_json=json.loads,
             prompt=self.prompt,
-            contract=lambda _n: "", language_rule=lambda *_: "", story_budget=lambda _o=None: 0,
+            contract=lambda _n: "",
+            language_rule=lambda *_: "",
+            story_budget=lambda _o=None: 0,
         )
 
 
 def test_each_picture_is_drawn_alone_on_the_element_task():
     fake = _Drawer({"car tire": [TIRE], "gap": [{"shape": TIRE}]})
     wants = [{"word": "car tire", "for": "Vehicle"}, {"word": "gap"}]
-    result = ElementDrawer(fake.ports(), FORM).draw(wants, "bridges", None, 3000)
+    result = ElementDrawer(fake.ports(), FORM, "animated_element").draw(
+        wants, "bridges", None, 3000
+    )
     assert result == {
         "ok": True,
         "elements": [{"word": "car tire", "shape": TIRE}, {"word": "gap", "shape": TIRE}],
@@ -81,7 +87,9 @@ def test_each_picture_is_drawn_alone_on_the_element_task():
 
 def test_a_refused_drawing_goes_back_once_with_what_was_wrong():
     fake = _Drawer({"gap": [BAD, TIRE], "leaf": [BAD, BAD]})
-    result = ElementDrawer(fake.ports(), FORM).draw([{"word": "gap"}, {"word": "leaf"}], "", None, 0)
+    result = ElementDrawer(fake.ports(), FORM, "animated_element").draw(
+        [{"word": "gap"}, {"word": "leaf"}], "", None, 0
+    )
     assert result["elements"] == [{"word": "gap", "shape": TIRE}]
     assert result["errors"][0]["word"] == "leaf"
     assert "refused" in result["errors"][0]["error"]
@@ -91,21 +99,27 @@ def test_a_refused_drawing_goes_back_once_with_what_was_wrong():
 
 def test_a_drawing_is_tried_as_often_as_the_caller_says_and_a_refused_one_comes_back():
     fake = _Drawer({"leaf": [BAD, BAD, BAD]})
-    result = ElementDrawer(fake.ports(), FORM).draw([{"word": "leaf"}], "", None, 0, tries=3)
+    result = ElementDrawer(fake.ports(), FORM, "animated_element").draw(
+        [{"word": "leaf"}], "", None, 0, tries=3
+    )
     assert sum("was refused" in user for _, _, user, _ in fake.calls) == 2
     assert result["ok"] is False and result["errors"][0]["answer"] == BAD
 
 
 def test_paths_past_the_kit_limit_are_refused():
     fake = _Drawer({"gap": [LONG, LONG]})
-    result = ElementDrawer(fake.ports(), FORM).draw([{"word": "gap"}], "", None, 0)
+    result = ElementDrawer(fake.ports(), FORM, "animated_element").draw(
+        [{"word": "gap"}], "", None, 0
+    )
     assert result["ok"] is False
     assert "at most 40" in result["error"]
 
 
 def test_a_failing_model_names_the_picture_it_could_not_draw():
     fake = _Drawer({"gap": [RuntimeError("model down")], "leaf": [TIRE]})
-    result = ElementDrawer(fake.ports(), FORM).draw([{"word": "gap"}, {"word": "leaf"}], "", None, 0)
+    result = ElementDrawer(fake.ports(), FORM, "animated_element").draw(
+        [{"word": "gap"}, {"word": "leaf"}], "", None, 0
+    )
     assert result["errors"] == [{"word": "gap", "error": "the drawing model failed: model down"}]
 
 
@@ -113,16 +127,21 @@ def test_wants_are_cleaned_deduplicated_and_capped():
     words = [{"word": f"thing {i}"} for i in range(ElementDrawer.MOST + 3)]
     fake = _Drawer({"Thing 0": [TIRE], **{w["word"]: [TIRE] for w in words}})
     wants = [{"word": "Thing 0"}, *words, {"word": "  "}, "junk"]
-    result = ElementDrawer(fake.ports(), FORM).draw(wants, "", None, 0)
+    result = ElementDrawer(fake.ports(), FORM, "animated_element").draw(wants, "", None, 0)
     drawn = [item["word"] for item in result["elements"]]
     assert drawn == ["Thing 0"] + [f"thing {i}" for i in range(1, ElementDrawer.MOST)]
 
 
 def test_nothing_is_asked_without_wants_a_format_or_a_prompt():
     fake = _Drawer({})
-    assert ElementDrawer(fake.ports(), FORM).draw([], "", None, 0)["error"] == "no pictures to draw"
-    no_form = ElementDrawer(fake.ports(), {}).draw([{"word": "gap"}], "", None, 0)
+    assert (
+        ElementDrawer(fake.ports(), FORM, "animated_element").draw([], "", None, 0)["error"]
+        == "no pictures to draw"
+    )
+    no_form = ElementDrawer(fake.ports(), {}, "animated_element").draw(
+        [{"word": "gap"}], "", None, 0
+    )
     assert "element format" in no_form["error"]
-    missing = ElementDrawer(_Drawer({}, missing=True).ports(), FORM)
+    missing = ElementDrawer(_Drawer({}, missing=True).ports(), FORM, "animated_element")
     assert missing.draw([{"word": "gap"}], "", None, 0)["error"] == "the drawing prompt is missing"
     assert fake.calls == []
