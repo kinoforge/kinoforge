@@ -30,6 +30,7 @@ class LineDirector:
         self.ref = str(kit.get("ref") or "")
         self.draws = [str(draw) for draw in words.get("draws") or []]
         self.places = [str(place) for place in words.get("places") or []]
+        self.words = words
 
     def direct(
         self,
@@ -61,7 +62,7 @@ class LineDirector:
         except DefinitionError:
             return {"ok": False, "error": "the lines prompt is missing"}
         check = BoardCheck(self.schema, self.NAME, stage=drawn_set, ref=self.ref)
-        rules = LineRules(drawn_set, self.places)
+        rules = LineRules(drawn_set, self.places, self.words)
         film = {
             "topic": clean_text(story.get("logline")) or clean_text(story.get("title")),
             "brief": clean_text((rec.get("input") or {}).get("description")),

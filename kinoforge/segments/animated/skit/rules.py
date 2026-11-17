@@ -124,8 +124,17 @@ class SetRules:
 
 class LineRules:
     MOST_ACTS = 4
+    PLAYED = {"act": "actions", "face": "faces"}
 
-    def __init__(self, drawn_set: Mapping, spots: Iterable[object] = ()) -> None:
+    def __init__(
+        self, drawn_set: Mapping, spots: Iterable[object] = (), words: Mapping | None = None
+    ) -> None:
+        listed = words or {}
+        self.playable = {
+            field: [str(word) for word in listed[name]]
+            for field, name in self.PLAYED.items()
+            if isinstance(listed.get(name), list)
+        }
         cast = [member for member in drawn_set.get("cast") or [] if isinstance(member, Mapping)]
         self.homes = {str(member.get("id")): str(member.get("place") or HOME) for member in cast}
         self.card = isinstance(drawn_set.get("card"), Mapping)
@@ -150,6 +159,7 @@ class LineRules:
             where = f"direction.lines[{index}]"
             if item.get("card") and not self.card:
                 found.append(f"{where}.card: the set has no card; leave card out")
+            found += self.unplayable(item, where)
             moves = self.moves(item, speakers[number - 1], now)
             for who, place, other in self.clashes(now, moves):
                 act = self._act(item, who)
@@ -164,7 +174,9 @@ class LineRules:
         line = {key: value for key, value in item.items() if key != "line"}
         if not self.card:
             line.pop("card", None)
-        acts = [dict(act) for act in line.get("acts") or [] if isinstance(act, Mapping)]
+        acts = [
+            self.playable_only(act) for act in line.get("acts") or [] if isinstance(act, Mapping)
+        ]
         clashing = {who for who, _, _ in self.clashes(at, self.moves({"acts": acts}, "", at))}
         for act in acts:
             if str(act.get("who")) in clashing:
@@ -181,6 +193,23 @@ class LineRules:
         if acts:
             line["acts"] = acts
         return line, {**at, **moves}
+
+    def unplayable(self, item: Mapping, where: str) -> list[str]:
+        return [
+            f"{where}.acts[{i}].{field}: {act[field]!r} is not one this cast can play; "
+            f"use one of {', '.join(allowed)} or leave {field} out"
+            for i, act in enumerate(item.get("acts") or [])
+            if isinstance(act, Mapping)
+            for field, allowed in self.playable.items()
+            if act.get(field) and str(act[field]) not in allowed
+        ]
+
+    def playable_only(self, act: Mapping) -> dict:
+        return {
+            key: value
+            for key, value in act.items()
+            if key not in self.playable or str(value) in self.playable[key]
+        }
 
     def moves(self, item: Mapping, speaker: str, at: Mapping[str, str]) -> dict[str, str]:
         asked = {

@@ -215,3 +215,25 @@ def test_a_clash_or_a_card_change_left_after_the_tries_never_reaches_the_film():
     assert result["lines"][0] == {"acts": [{"who": "leo", "pose": "talk"}], "speaker": "mia"}
     assert result["lines"][1]["acts"] == [{"who": "leo", "move": "center"}]
     assert any("was refused" in error for error in result["errors"])
+
+
+def test_an_act_or_face_the_cast_cannot_play_goes_back_to_the_director():
+    words = {"actions": ["idle", "talk", "wave"], "faces": ["neutral", "sad"]}
+    rules = LineRules(SET, KIT["words"]["places"], words)
+    items = [{"line": 1, "acts": [{"who": "mia", "act": "shrug", "face": "sad"}]}]
+    assert rules.problems(items, SPEAKERS, rules.start, (1, 1)) == [
+        "direction.lines[0].acts[0].act: 'shrug' is not one this cast can play; "
+        "use one of idle, talk, wave or leave act out"
+    ]
+    line, _ = rules.played(
+        {"acts": [{"who": "mia", "act": "shrug", "face": "happy"}, {"who": "leo", "act": "wave"}]},
+        "mia",
+        rules.start,
+    )
+    assert line == {"acts": [{"who": "leo", "act": "wave"}]}
+
+
+def test_a_kit_without_listed_acts_lets_every_act_through():
+    rules = LineRules(SET, KIT["words"]["places"])
+    items = [{"line": 1, "acts": [{"who": "mia", "act": "shrug"}]}]
+    assert rules.problems(items, SPEAKERS, rules.start, (1, 1)) == []
