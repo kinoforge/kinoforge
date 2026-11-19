@@ -12,6 +12,7 @@ from kinoforge.service.settings import ServiceSettings  # noqa: E402
 
 # --- ServiceSettings ------------------------------------------------------
 
+
 def test_from_env_reads_route_and_paths(monkeypatch):
     monkeypatch.setenv("INFRELAY_URL", "http://infrelay:8090")
     monkeypatch.setenv("INFRELAY_SERVICE_TOKEN", "tok")
@@ -25,8 +26,12 @@ def test_from_env_reads_route_and_paths(monkeypatch):
 
 
 def test_from_env_defaults_when_unset(monkeypatch):
-    for key in ("INFRELAY_URL", "INFRELAY_SERVICE_TOKEN", "KINOFORGE_SHARED_ROOT",
-                "KINOFORGE_CACHE_DIR"):
+    for key in (
+        "INFRELAY_URL",
+        "INFRELAY_SERVICE_TOKEN",
+        "KINOFORGE_SHARED_ROOT",
+        "KINOFORGE_CACHE_DIR",
+    ):
         monkeypatch.delenv(key, raising=False)
     s = ServiceSettings.from_env()
     assert s.infrelay_url == "" and s.infrelay_token == ""
@@ -40,6 +45,7 @@ def test_infrelay_builds_client_for_owner():
 
 
 # --- InfrelayTextPorts ----------------------------------------------------
+
 
 class _FakeInfrelay:
     def __init__(self):
@@ -63,8 +69,9 @@ def _ports(*, budgets=None, contract_key=None, language_key=None):
 
 def test_complete_calls_the_given_route():
     p = _ports()
-    text, usage = p.complete(AITask.STORY_WRITE, "sys", "usr", route=ModelRef("op", "m"),
-                             temperature=0.3, max_tokens=100)
+    text, usage = p.complete(
+        AITask.STORY_WRITE, "sys", "usr", route=ModelRef("op", "m"), temperature=0.3, max_tokens=100
+    )
     assert text == '{"episodes": [1, 2]}'
     assert usage == {"usage": 3}
     assert p._infrelay.calls == [("story.write", "op", "m")]
@@ -92,6 +99,10 @@ def test_complete_json_parses_result():
 def test_parse_json_strips_code_fences():
     assert InfrelayTextPorts.parse_json('```json\n{"a": 1}\n```') == {"a": 1}
     assert InfrelayTextPorts.parse_json('noise {"a": 2} trailing') == {"a": 2}
+    assert InfrelayTextPorts.parse_json('{a: 1, b_2: "https://x.com/y", // cmt\n}') == {
+        "a": 1,
+        "b_2": "https://x.com/y",
+    }
 
 
 def test_story_budget_clamps_override_to_limit():
@@ -99,7 +110,7 @@ def test_story_budget_clamps_override_to_limit():
     assert p.story_budget() == 100
     assert p.story_budget("50") == 50
     assert p.story_budget("200") == 100  # capped
-    assert p.story_budget("0") == 100    # non-positive ignored
+    assert p.story_budget("0") == 100  # non-positive ignored
     assert p.story_budget("bad") == 100  # unparseable ignored
 
 

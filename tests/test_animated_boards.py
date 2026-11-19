@@ -94,9 +94,13 @@ class _Writer:
 
     def ports(self) -> TextPorts:
         return TextPorts(
-            complete=None, complete_json=self.complete_json, parse_json=json.loads,
+            complete=None,
+            complete_json=self.complete_json,
+            parse_json=json.loads,
             prompt=self.prompt,
-            contract=lambda _n: "", language_rule=lambda *_: "", story_budget=lambda _o=None: 0,
+            contract=lambda _n: "",
+            language_rule=lambda *_: "",
+            story_budget=lambda _o=None: 0,
         )
 
 
@@ -163,6 +167,18 @@ def test_no_board_at_all_fails_the_operation():
     assert result["ok"] is False and "down" in result["error"]
 
 
+def test_infrelay_error_keeps_failure_class_and_hides_detail_from_public_error():
+    from kinoforge.inference.infrelay import InfrelayError
+
+    err = InfrelayError("provider failed (402): out of balance", failure="account")
+    fake = _Writer({1: [GOOD], 3: [err]})
+    partial = BoardWriter(fake.ports(), KIT).draw(RECORD)
+    assert partial["ok"] is True
+    assert partial["errors"][0]["failure"] == "account"
+    assert "402" not in partial["errors"][0]["error"]
+    assert "402" in partial["errors"][0]["detail"]
+
+
 def test_targets_pick_the_scenes_to_draw():
     fake = _Writer({3: [GOOD]})
     result = BoardWriter(fake.ports(), KIT).draw(RECORD, targets=[2])
@@ -212,7 +228,9 @@ def test_a_staged_kit_writes_the_stage_once_and_hands_it_to_every_board():
     fake = _Writer({"stage": [STAGE], 1: [GOOD], 3: [GOOD]})
     result = BoardWriter(fake.ports(), STAGED).draw(RECORD)
     assert result["stage"] == STAGE
-    briefs = [json.loads(user) for system, user in fake.prompts if system.startswith("<animated_board>")]
+    briefs = [
+        json.loads(user) for system, user in fake.prompts if system.startswith("<animated_board>")
+    ]
     assert len(briefs) == 2 and all(brief["stage"] == STAGE for brief in briefs)
 
 
@@ -220,7 +238,9 @@ def test_boards_get_the_stage_parts_it_has():
     coded = {"nodes": [], "files": [{"id": "stock", "lines": ["class Stock {}"]}]}
     fake = _Writer({"stage": [coded], 1: [GOOD], 3: [GOOD]})
     BoardWriter(fake.ports(), STAGED).draw(RECORD)
-    briefs = [json.loads(user) for system, user in fake.prompts if system.startswith("<animated_board>")]
+    briefs = [
+        json.loads(user) for system, user in fake.prompts if system.startswith("<animated_board>")
+    ]
     assert all(brief["stage"] == {"files": coded["files"]} for brief in briefs)
 
 
@@ -253,9 +273,14 @@ def test_boards_read_only_the_surfaces_and_icons_their_stage_draws():
     stage = {"nodes": [], "road": {"side": "left"}, "surfaces": ["map"], "icons": ["car", "nope"]}
     fake = _Writer({"stage": [stage], 1: [GOOD], 3: [GOOD]})
     BoardWriter(fake.ports(), {**STAGED, **PARTED}).draw(RECORD)
-    boards = [(system, json.loads(user)) for system, user in fake.prompts if system.startswith("<animated_board>")]
+    boards = [
+        (system, json.loads(user))
+        for system, user in fake.prompts
+        if system.startswith("<animated_board>")
+    ]
     assert all(
-        system == "<animated_board>PIECES: title\nROAD: drive\nMAP: pin\nICONS: car" for system, _ in boards
+        system == "<animated_board>PIECES: title\nROAD: drive\nMAP: pin\nICONS: car"
+        for system, _ in boards
     )
     assert all(brief["stage"] == {"road": {"side": "left"}} for _, brief in boards)
 
@@ -264,7 +289,9 @@ def test_a_stage_that_names_no_surfaces_keeps_the_whole_catalog():
     fake = _Writer({"stage": [STAGE], 1: [GOOD], 3: [GOOD]})
     BoardWriter(fake.ports(), {**STAGED, **PARTED}).draw(RECORD)
     systems = {system for system, _ in fake.prompts if system.startswith("<animated_board>")}
-    assert systems == {"<animated_board>PIECES: title\nDIAGRAM: show\nROAD: drive\nMAP: pin\nICONS: car, bee, map"}
+    assert systems == {
+        "<animated_board>PIECES: title\nDIAGRAM: show\nROAD: drive\nMAP: pin\nICONS: car, bee, map"
+    }
 
 
 REFS = {
@@ -279,7 +306,10 @@ REFS = {
                 "properties": {
                     "piece": {
                         "type": "object",
-                        "properties": {"type": {"const": "show"}, "node": {"type": "string", "x-stage": "nodes"}},
+                        "properties": {
+                            "type": {"const": "show"},
+                            "node": {"type": "string", "x-stage": "nodes"},
+                        },
                     }
                 },
             },
@@ -287,7 +317,10 @@ REFS = {
     },
 }
 SHOWN = {"mood": "happy", "beats": [{"cue": "bees", "piece": {"type": "show", "node": "bee"}}]}
-STRAY = {"mood": "happy", "beats": [{"cue": "bees", "piece": {"type": "show", "node": "hive-cell"}}]}
+STRAY = {
+    "mood": "happy",
+    "beats": [{"cue": "bees", "piece": {"type": "show", "node": "hive-cell"}}],
+}
 REFERRED = {**STAGED, "schema": REFS, "stage": {**STAGED["stage"], "ref": "x-stage"}}
 
 
@@ -301,7 +334,9 @@ def test_a_board_naming_a_part_off_the_stage_goes_back_with_the_stage_ids():
 
 def test_a_stage_without_the_part_says_to_leave_the_piece_out():
     problems = BoardCheck(REFS, stage={"nodes": []}, ref="x-stage").problems(SHOWN)
-    assert problems == ["board.beats[0].piece.node: 'bee' is not on the STAGE, which has no nodes: leave this piece out"]
+    assert problems == [
+        "board.beats[0].piece.node: 'bee' is not on the STAGE, which has no nodes: leave this piece out"
+    ]
 
 
 def test_a_refused_stage_fails_the_boards_instead_of_drawing_without_it():
@@ -312,18 +347,26 @@ def test_a_refused_stage_fails_the_boards_instead_of_drawing_without_it():
 
 
 def test_fixes_send_the_drawn_board_back_with_what_did_not_fit():
-    scenes = [{"narration": "Bees pollinate.", "board": GOOD}, {"narration": ""}, {"narration": "Crops."}]
+    scenes = [
+        {"narration": "Bees pollinate.", "board": GOOD},
+        {"narration": ""},
+        {"narration": "Crops."},
+    ]
     record = {**RECORD, "story": {**RECORD["story"], "scenes": scenes}}
     fake = _Writer({1: [GOOD]})
     tight = "board.beats[0].piece.text: too long to read on a vertical frame; keep it under 20 characters"
     result = BoardWriter(fake.ports(), KIT).draw(record, targets=[0], fixes={0: [tight]})
     assert result["ok"] is True
-    (_, user), = fake.prompts
+    ((_, user),) = fake.prompts
     assert "was refused" in user and tight in user and json.dumps(GOOD) in user
 
 
 def test_a_fix_the_writer_cannot_make_keeps_the_board_it_drew():
-    scenes = [{"narration": "Bees pollinate.", "board": GOOD}, {"narration": ""}, {"narration": "Crops."}]
+    scenes = [
+        {"narration": "Bees pollinate.", "board": GOOD},
+        {"narration": ""},
+        {"narration": "Crops."},
+    ]
     record = {**RECORD, "story": {**RECORD["story"], "scenes": scenes}}
     fake = _Writer({1: [BAD, BAD]})
     result = BoardWriter(fake.ports(), KIT).draw(record, targets=[0], fixes={0: ["too long"]})
@@ -368,7 +411,10 @@ def test_write_stage_fails_without_a_stage_prompt():
 
 def test_boards_list_the_store_items_the_caller_resolved_for_the_stage():
     stage = {"nodes": [], "surfaces": [], "icons": ["car", "postgresql", "nope"]}
-    record = {**RECORD, "story": {**RECORD["story"], "stage": stage, "elements": {"postgresql": {}}}}
+    record = {
+        **RECORD,
+        "story": {**RECORD["story"], "stage": stage, "elements": {"postgresql": {}}},
+    }
     fake = _Writer({1: [GOOD], 3: [GOOD]})
     BoardWriter(fake.ports(), {**STAGED, **PARTED}).draw(record)
     systems = {system for system, _ in fake.prompts if system.startswith("<animated_board>")}
@@ -407,7 +453,10 @@ def _given(story=None):
 
 
 def test_given_files_go_on_the_stage_exactly_as_given_past_the_writers_limits():
-    written = {"nodes": [], "files": [{"id": "compose", "lines": ["web: x"]}, {"id": "app", "lines": ["a"]}]}
+    written = {
+        "nodes": [],
+        "files": [{"id": "compose", "lines": ["web: x"]}, {"id": "app", "lines": ["a"]}],
+    }
     fake = _Writer({"stage": [written]})
     result = StageWriter(fake.ports(), FILED).write(_given(), None, 0)
     assert result["stage"]["files"] == [COMPOSE, {"id": "app", "lines": ["a"]}]

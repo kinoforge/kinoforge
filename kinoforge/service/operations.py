@@ -53,7 +53,12 @@ class Operations:
             outcome = {"status": "error", "error": str(exc.detail), "status_code": exc.status_code}
         except InfrelayError as exc:
             status = 429 if isinstance(exc, InfrelayLimited) else 502
-            outcome = {"status": "error", "error": str(exc), "status_code": status}
+            outcome = {
+                "status": "error",
+                "error": str(exc),
+                "status_code": status,
+                **({"failure": exc.failure} if exc.failure else {}),
+            }
         except Exception as exc:  # noqa: BLE001 - the caller hears of every failure
             active().warning(f"background request failed: {exc}")
             outcome = {"status": "error", "error": str(exc) or type(exc).__name__}

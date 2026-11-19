@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from kinoforge.contract import AITask, ModelRef
 from kinoforge.definitions.models import DefinitionError
+from kinoforge.inference.infrelay import InfrelayError
 from kinoforge.observ import with_context
 from kinoforge.segments.animated.check import BoardCheck, Repair
 from kinoforge.segments.common.ports import TextPorts
@@ -23,6 +24,8 @@ class Drawing:
     shape: dict | None
     error: str = ""
     answer: object = None
+    detail: str = ""
+    failure: str = ""
 
 
 class ElementDrawer:
@@ -70,11 +73,26 @@ class ElementDrawer:
             done = [job.result() for job in jobs]
         elements = [{"word": d.want.word, "shape": d.shape} for d in done if d.shape is not None]
         errors = [
-            {"word": d.want.word, "error": d.error, **BoardCheck.refused(d.answer)}
+            {
+                "word": d.want.word,
+                "error": d.error,
+                **({"detail": d.detail} if d.detail else {}),
+                **({"failure": d.failure} if d.failure else {}),
+                **BoardCheck.refused(d.answer),
+            }
             for d in done
             if d.shape is None
         ]
         if not elements:
+            first_item = next(d for d in done if d.shape is None)
+            if first_item.detail:
+                return {
+                    "ok": False,
+                    "error": "drawing failed.",
+                    "detail": first_item.detail,
+                    **({"failure": first_item.failure} if first_item.failure else {}),
+                    "errors": errors,
+                }
             first = errors[0]["error"]
             return {"ok": False, "error": f"no picture could be drawn: {first}", "errors": errors}
         return {"ok": True, "elements": elements, "errors": errors}
@@ -109,6 +127,14 @@ class ElementDrawer:
             except json.JSONDecodeError as error:
                 drawn, problems = None, Repair.unread(error)
                 continue
+            except InfrelayError as error:
+                return Drawing(
+                    want,
+                    None,
+                    "Drawing model failed.",
+                    detail=str(error),
+                    failure=error.failure,
+                )
             except Exception as error:
                 return Drawing(want, None, f"the drawing model failed: {error}")
             drawn = answer.get("shape", answer) if isinstance(answer, dict) else answer

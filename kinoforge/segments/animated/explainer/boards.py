@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 from kinoforge.contract import AITask, ModelRef
+from kinoforge.inference.infrelay import InfrelayError
 from kinoforge.observ import with_context
 from kinoforge.segments.animated.check import BoardCheck, KitRefused, Repair
 from kinoforge.segments.animated.explainer.catalog import KitCatalog
@@ -21,6 +22,8 @@ class Drawn:
     board: dict | None
     error: str = ""
     answer: object = None
+    detail: str = ""
+    failure: str = ""
 
 
 class BoardWriter:
@@ -83,13 +86,31 @@ class BoardWriter:
             drawn = [job.result() for job in jobs]
         boards = [{"index": d.index, "board": d.board} for d in drawn if d.board is not None]
         errors = [
-            {"index": d.index, "error": d.error, **BoardCheck.refused(d.answer)}
+            {
+                "index": d.index,
+                "error": d.error,
+                **({"detail": d.detail} if d.detail else {}),
+                **({"failure": d.failure} if d.failure else {}),
+                **BoardCheck.refused(d.answer),
+            }
             for d in drawn
             if d.board is None
         ]
         if not boards:
-            first = errors[0]["error"]
-            return {"ok": False, "error": f"no board could be drawn: {first}", "errors": errors}
+            first = next(d for d in drawn if d.board is None)
+            if first.detail:
+                return {
+                    "ok": False,
+                    "error": f"board {first.index + 1} failed.",
+                    "detail": first.detail,
+                    **({"failure": first.failure} if first.failure else {}),
+                    "errors": errors,
+                }
+            return {
+                "ok": False,
+                "error": f"no board could be drawn: {errors[0]['error']}",
+                "errors": errors,
+            }
         return {"ok": True, "boards": boards, "errors": errors, "stage": stage}
 
     def system(self, rec: dict, stage: dict | None) -> str:
@@ -137,6 +158,16 @@ class BoardWriter:
             except json.JSONDecodeError as error:
                 board, problems = None, Repair.unread(error)
                 continue
+            except InfrelayError as error:
+                if isinstance(drawn, dict):
+                    return Drawn(index, drawn)
+                return Drawn(
+                    index,
+                    None,
+                    "Board writer failed.",
+                    detail=str(error),
+                    failure=error.failure,
+                )
             except Exception as error:
                 if isinstance(drawn, dict):
                     return Drawn(index, drawn)

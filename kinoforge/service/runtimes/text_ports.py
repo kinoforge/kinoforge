@@ -18,6 +18,52 @@ from kinoforge.segments.common.ports import Chat, TextPorts
 _TRAILING_COMMA = re.compile(r",\s*([}\]])")
 
 
+class JsonRepair:
+    @staticmethod
+    def repair(text: str) -> str:
+        out: list[str] = []
+        i, n, in_str, esc = 0, len(text), False, False
+        while i < n:
+            ch = text[i]
+            if in_str:
+                out.append(ch)
+                esc = not esc and ch == "\\"
+                if not esc and ch == '"':
+                    in_str = False
+                i += 1
+                continue
+            if ch == '"':
+                in_str = True
+                out.append(ch)
+            elif ch == "/" and i + 1 < n and text[i + 1] == "/":
+                end = text.find("\n", i + 2)
+                i = n if end == -1 else end
+                continue
+            elif (ch.isalpha() or ch == "_") and JsonRepair.expects_key(out):
+                j = i + 1
+                while j < n and (text[j].isalnum() or text[j] == "_"):
+                    j += 1
+                k = j
+                while k < n and text[k] in " \t\r\n":
+                    k += 1
+                if k < n and text[k] == ":":
+                    out.append(f'"{text[i:j]}"')
+                    i = j
+                    continue
+                out.append(ch)
+            else:
+                out.append(ch)
+            i += 1
+        return _TRAILING_COMMA.sub(r"\1", "".join(out))
+
+    @staticmethod
+    def expects_key(out: list[str]) -> bool:
+        for ch in reversed(out):
+            if ch not in " \t\r\n":
+                return ch in "{,"
+        return False
+
+
 class InfrelayTextPorts:
     def __init__(
         self,
@@ -42,10 +88,16 @@ class InfrelayTextPorts:
 
     def to_ports(self) -> TextPorts:
         return TextPorts(
-            complete=self.complete, complete_json=self.complete_json,
-            parse_json=self.parse_json, prompt=self.prompt, contract=self.contract,
-            language_rule=self.language_rule, story_budget=self.story_budget,
-            meter=self._meter, languages=self._languages, open_chat=self.open_chat,
+            complete=self.complete,
+            complete_json=self.complete_json,
+            parse_json=self.parse_json,
+            prompt=self.prompt,
+            contract=self.contract,
+            language_rule=self.language_rule,
+            story_budget=self.story_budget,
+            meter=self._meter,
+            languages=self._languages,
+            open_chat=self.open_chat,
         )
 
     def open_chat(self, system: str) -> Chat:
@@ -56,7 +108,12 @@ class InfrelayTextPorts:
             task: AITask, user: str, *, route: ModelRef, temperature: float, max_tokens: int
         ) -> dict[str, Any]:
             text, _ = self._infrelay.text(
-                task, route, "", user, temperature=temperature, max_tokens=max_tokens,
+                task,
+                route,
+                "",
+                user,
+                temperature=temperature,
+                max_tokens=max_tokens,
                 conversation=conversation,
             )
             return self.parse_json(text)
@@ -70,26 +127,50 @@ class InfrelayTextPorts:
         return Chat(ask=ask, close=close)
 
     def complete(
-        self, task: AITask, system: str, user: str, *,
-        route: ModelRef, temperature: float, max_tokens: int,
-        conversation: str = "", compact: bool = False,
+        self,
+        task: AITask,
+        system: str,
+        user: str,
+        *,
+        route: ModelRef,
+        temperature: float,
+        max_tokens: int,
+        conversation: str = "",
+        compact: bool = False,
     ) -> tuple[str, dict[str, Any]]:
-        active().debug(f"{self._label} text call: {task}", route=str(route),
-                       max_tokens=max_tokens, temperature=temperature,
-                       conversation=conversation or None)
+        active().debug(
+            f"{self._label} text call: {task}",
+            route=str(route),
+            max_tokens=max_tokens,
+            temperature=temperature,
+            conversation=conversation or None,
+        )
         turn = {"conversation": conversation, "compact": compact} if conversation else {}
         return self._infrelay.text(
             task, route, system, user, temperature=temperature, max_tokens=max_tokens, **turn
         )
 
     def complete_json(
-        self, task: AITask, system: str, user: str, *,
-        route: ModelRef, temperature: float, max_tokens: int,
-        conversation: str = "", compact: bool = False,
+        self,
+        task: AITask,
+        system: str,
+        user: str,
+        *,
+        route: ModelRef,
+        temperature: float,
+        max_tokens: int,
+        conversation: str = "",
+        compact: bool = False,
     ) -> dict[str, Any]:
         text, _ = self.complete(
-            task, system, user, route=route, temperature=temperature, max_tokens=max_tokens,
-            conversation=conversation, compact=compact,
+            task,
+            system,
+            user,
+            route=route,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            conversation=conversation,
+            compact=compact,
         )
         return self.parse_json(text)
 
@@ -106,7 +187,10 @@ class InfrelayTextPorts:
         try:
             return json.loads(s, strict=False)
         except json.JSONDecodeError:
-            return json.loads(_TRAILING_COMMA.sub(r"\1", s), strict=False)
+            try:
+                return json.loads(_TRAILING_COMMA.sub(r"\1", s), strict=False)
+            except json.JSONDecodeError:
+                return json.loads(JsonRepair.repair(s), strict=False)
 
     def prompt(self, key: str, **params: object) -> str:
         return self._renderer.render(DefinitionKind.AGENT, key, **params)

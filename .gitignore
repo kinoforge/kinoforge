@@ -6,3 +6,4 @@ docs/
 ./DESIGN.md
 DESIGN.md
 .env
+uv.lock
