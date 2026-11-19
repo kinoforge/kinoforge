@@ -81,6 +81,11 @@ class BoardCheck:
         return {} if answer is None else {"answer": answer}
 
     @staticmethod
+    def failed(error: str, answer: object) -> dict:
+        unread = {"retry": True} if answer is None else {}
+        return {"ok": False, "error": error, **BoardCheck.refused(answer), **unread}
+
+    @staticmethod
     def _plain(error: ValidationError) -> str:
         given = error.instance
         match error.validator:

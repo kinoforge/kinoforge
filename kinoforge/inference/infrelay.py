@@ -13,7 +13,18 @@ from kinoforge.observ import active, shape
 
 
 class InfrelayError(RuntimeError):
-    pass
+    def __init__(self, message: str, failure: str = ""):
+        super().__init__(message)
+        self.failure = failure
+
+    @classmethod
+    def answered(cls, what: str, response: httpx.Response) -> "InfrelayError":
+        try:
+            body = response.json()
+        except ValueError:
+            body = None
+        failure = str(body.get("failure") or "") if isinstance(body, dict) else ""
+        return cls(f"{what} failed ({response.status_code}): {response.text[:300]}", failure)
 
 
 class InfrelayLate(InfrelayError):
@@ -85,9 +96,7 @@ class InfrelayClient:
         if not late and response.status_code >= 400:
             log.warning(f"infrelay {task} {ref} failed ({response.status_code}) in {elapsed_ms}ms",
                         status=response.status_code, body=response.text[:300])
-            raise InfrelayError(
-                f"infrelay {task} {ref} failed ({response.status_code}): {response.text[:300]}"
-            )
+            raise InfrelayError.answered(f"infrelay {task} {ref}", response)
         if not late:
             result = self._json(response, task.value)
         self._answered(task, ref, result)
@@ -137,7 +146,7 @@ class InfrelayClient:
             "credits": int(usage.get("credits") or 0),
             "byok": bool(usage.get("byok")),
             "units": int(usage.get("units") or 1),
-            "routed": bool(usage.get("routed")),
+            "routed": usage.get("routed"),
         })
         rewrite = usage.get("enhance")
         if isinstance(rewrite, dict):
@@ -174,9 +183,7 @@ class InfrelayClient:
             if response.status_code == 200:
                 return self._json(response, link)
             if response.status_code not in (202, 429):
-                raise InfrelayError(
-                    f"infrelay {link} failed ({response.status_code}): {response.text[:300]}"
-                )
+                raise InfrelayError.answered(f"infrelay {link}", response)
             wait = float(response.headers.get("Retry-After") or self.READ_EVERY)
             if time.monotonic() + wait > deadline:
                 raise InfrelayLate(link)
@@ -229,7 +236,7 @@ class InfrelayClient:
 
     def image(self, task: AITask, ref: ModelRef, prompt: str, spec: ImageSpec) -> bytes:
         payload: Dict[str, Any] = {
-            "prompt": prompt, "aspect_ratio": spec.aspect_ratio, "safe": not spec.mature,
+            "prompt": prompt, "aspect_ratio": spec.aspect_ratio, "safe": True,
         }
         if spec.seed is not None:
             payload["seed"] = int(spec.seed)
@@ -299,7 +306,7 @@ class InfrelayClient:
     def _video_payload(self, prompt: str, spec: VideoSpec) -> Dict[str, Any]:
         payload: Dict[str, Any] = {
             "prompt": prompt, "seconds": spec.seconds, "resolution": spec.resolution,
-            "aspect_ratio": spec.aspect_ratio, "safe": not spec.mature,
+            "aspect_ratio": spec.aspect_ratio, "safe": True,
         }
         self._add_file(payload, "reference", spec.image)
         self._add_file(payload, "last_frame", spec.last_frame)

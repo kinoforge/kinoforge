@@ -70,7 +70,7 @@ class SetWriter:
                 lambda answer: self.rules.problems(answer, story, presenter),
             )
         except KitRefused as error:
-            return {"ok": False, "error": str(error), **BoardCheck.refused(error.answer)}
+            return BoardCheck.failed(str(error), error.answer)
         return {"ok": True, "set": drawn}
 
     @staticmethod

@@ -101,7 +101,6 @@ class MediaFile:
 class ImageSpec:
     aspect_ratio: str = "9:16"
     seed: Optional[int] = None
-    mature: bool = False
     negative: str = ""
     reference: Optional[MediaFile] = None
     enhance: bool = False
@@ -152,7 +151,6 @@ class VideoSpec:
     seconds: float
     resolution: int
     aspect_ratio: str
-    mature: bool = False
     image: Optional[MediaFile] = None
     enhance: bool = False
     enhance_style: str = ""

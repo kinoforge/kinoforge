@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from kinoforge.segments.flow.nodes import NODES, NodeSpec
 
-NODE_ID = r"^[A-Za-z0-9_-]{1,40}$"
+NODE_ID = r"^[a-z0-9_-]{1,40}$"
 PORT_NAME = r"^[a-z_]{1,40}$"
 MAX_NODES = 80
 MAX_EDGES = 200

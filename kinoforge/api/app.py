@@ -51,7 +51,8 @@ async def _flow_refused(_request: Request, exc: FlowError) -> JSONResponse:
 async def _gateway_failed(_request: Request, exc: InfrelayError) -> JSONResponse:
     """A gateway that took no more of the tenant's calls for now is the caller's 429."""
     status = 429 if isinstance(exc, InfrelayLimited) else 502
-    return JSONResponse(status_code=status, content={"detail": str(exc)})
+    failure = {"failure": exc.failure} if exc.failure else {}
+    return JSONResponse(status_code=status, content={"detail": str(exc), **failure})
 
 
 for _router in ROUTERS:

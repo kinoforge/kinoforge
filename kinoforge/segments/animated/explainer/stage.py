@@ -31,7 +31,7 @@ class StageWriter:
         try:
             stage = self.stage(rec, route, max_tokens, tries)
         except KitRefused as error:
-            return {"ok": False, "error": str(error), **BoardCheck.refused(error.answer)}
+            return BoardCheck.failed(str(error), error.answer)
         if stage is None:
             return {"ok": False, "error": "the explainer kit or the stage prompt is missing"}
         return {"ok": True, "stage": stage}

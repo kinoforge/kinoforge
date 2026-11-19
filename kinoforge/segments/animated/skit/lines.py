@@ -115,11 +115,7 @@ class LineDirector:
             if chat is not None:
                 chat.close()
         if not answered:
-            return {
-                "ok": False,
-                "error": errors[0] if errors else "no lines came back",
-                **BoardCheck.refused(answer),
-            }
+            return BoardCheck.failed(errors[0] if errors else "no lines came back", answer)
         lines = [{**kept.get(i + 1, {}), "speaker": speakers[i]} for i in range(len(scenes))]
         return {"ok": True, "lines": self.capped(lines, presenter, draws), "errors": errors}
 

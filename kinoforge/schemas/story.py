@@ -33,7 +33,6 @@ class StoryContextRequest(BaseModel):
         description="Frozen ordered episode slate/history for continuity-aware screenwriters.",
     )
     series_position: int = Field(default=0, ge=0)
-    mature: bool = False
 
 
 class StoryWriteRequest(OperationRequest):

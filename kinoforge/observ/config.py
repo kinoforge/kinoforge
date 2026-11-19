@@ -7,7 +7,7 @@ import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from kinoforge.observ.logger import TRACE, KinoLogger, _LEVELS
+from kinoforge.observ.logger import _LEVELS, TRACE, KinoLogger
 
 _ROOT = "kinoforge"
 _MARK = {"ERROR": "x", "WARNING": "!", "SUCCESS": "+", "INFO": " ", "DEBUG": ".", "TRACE": "-"}

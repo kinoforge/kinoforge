@@ -126,7 +126,7 @@ def format_media(code_name: JobKind, request: FormatRequest) -> dict:
     tags=["Transcription"],
     summary="Align narration transcript",
     description=(
-        "Transcribes narration through Infrelay, then maps canonical input text onto recognized "
+        "Transcribes narration, then maps canonical input text onto recognized "
         "word timing for accurate captions."
     ),
     response_model=AlignmentResponse,

@@ -57,7 +57,7 @@ def _capture(monkeypatch, output):
 
 def test_image_payload_comes_from_the_spec(monkeypatch):
     sent = _capture(monkeypatch, {"type": "b64", "value": base64.b64encode(b"png").decode()})
-    spec = ImageSpec(aspect_ratio="1:1", seed=7, mature=True, negative="blur",
+    spec = ImageSpec(aspect_ratio="1:1", seed=7, negative="blur",
                      reference=MediaFile(data=b"ref"), enhance=True, enhance_style="cine")
     client = InfrelayClient("http://gw", tenant="t")
     data = client.image(AITask.STORY_IMAGE, ModelRef("fal", "flux"), "a cat", spec)
@@ -66,7 +66,7 @@ def test_image_payload_comes_from_the_spec(monkeypatch):
     assert (body["url"], body["inference"], body["tenant_id"]) == (
         "http://gw/v1/inference/story.image", {"model": "flux", "provider": "fal"}, "t")
     assert body["input"] == {
-        "prompt": "a cat", "aspect_ratio": "1:1", "safe": False, "seed": 7,
+        "prompt": "a cat", "aspect_ratio": "1:1", "safe": True, "seed": 7,
         "negative": "blur", "reference_b64": base64.b64encode(b"ref").decode(),
         "enhance": True, "enhance_style": "cine",
     }

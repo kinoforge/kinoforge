@@ -51,11 +51,10 @@ def test_story_brief_ignores_unknown_keys():
 def test_build_context_from_brief():
     ctx = Screenwriter(_Text().ports()).build_context(StoryBrief(
         title=" Heist ", scene_count=0, cast=[{"name": "Ava", "look": "tall"}, {"look": "x"}],
-        mature=True,
     ))
     assert ctx["title"] == "Heist"
     assert ctx["scene_count"] == 8
-    assert ctx["audience"] == "mature"
+    assert "audience" not in ctx
     assert ctx["language_rule"] == "RULE"
     assert json.loads(ctx["series_cast"]) == [
         {"name": "Ava", "look": "tall", "wears": "", "personality": ""}

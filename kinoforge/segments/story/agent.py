@@ -9,7 +9,6 @@ breakdown; its strict schema comes from the `contract` fragment. Stage execution
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
-from enum import StrEnum
 from typing import Any
 
 from kinoforge.segments.common.languages import language_name
@@ -23,12 +22,13 @@ class ModelFailure:
 
     @staticmethod
     def of(what: str, error: object) -> dict:
-        return {"ok": False, "error": f"{what} failed.", "detail": str(error)}
-
-
-class AudienceMode(StrEnum):
-    GENERAL = "general"
-    MATURE = "mature"
+        failure = str(getattr(error, "failure", "") or "")
+        return {
+            "ok": False,
+            "error": f"{what} failed.",
+            "detail": str(error),
+            **({"failure": failure} if failure else {}),
+        }
 
 
 @dataclass(frozen=True)
@@ -47,7 +47,6 @@ class StoryBrief:
     series_name: str = ""
     series_episodes: list[dict] = field(default_factory=list)
     series_position: int = 0
-    mature: bool = False
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "StoryBrief":
@@ -63,9 +62,6 @@ class BriefText:
     CAST_RULE = (
         "Reuse the recurring cast and invent no replacement for them. Each is given as they "
         "are when this video begins: identity first, then what they wear and carry."
-    )
-    MATURE_RULE = (
-        "Audience: adults. Mature vocabulary and intensity are allowed within platform safety."
     )
 
     @staticmethod
@@ -118,8 +114,6 @@ class BriefText:
             parts.append(cls.SERIES_RULE)
         if cast:
             parts.append(cls.CAST_RULE)
-        if brief.mature:
-            parts.append(cls.MATURE_RULE)
         return "\n\n".join(parts)
 
 
@@ -157,6 +151,5 @@ class Screenwriter:
             "series_cast": json.dumps(series_cast, ensure_ascii=False),
             "series_history": json.dumps(brief.series_episodes or [], ensure_ascii=False),
             "series_position": max(0, int(brief.series_position or 0)),
-            "audience": (AudienceMode.MATURE if brief.mature else AudienceMode.GENERAL).value,
             "brief": BriefText.of(brief, series_cast),
         }

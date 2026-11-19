@@ -59,7 +59,7 @@ class BoardWriter:
         try:
             stage = self.stages.stage(rec, route, max_tokens, tries)
         except KitRefused as error:
-            return {"ok": False, "error": str(error), **BoardCheck.refused(error.answer)}
+            return BoardCheck.failed(str(error), error.answer)
         check = BoardCheck(self.schema, self.NAME, stage=stage, ref=self.ref)
         fixes = fixes or {}
         system = self.system(rec, stage)

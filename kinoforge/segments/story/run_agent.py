@@ -7,7 +7,6 @@ from collections.abc import Callable
 from kinoforge.contract import AITask, MeterAction, ModelRef
 from kinoforge.segments.common.ports import TextPorts
 from kinoforge.segments.common.text import clean_text
-from kinoforge.segments.story.agent import AudienceMode
 from kinoforge.segments.story.quality import StoryQualityGate
 
 StageCallback = Callable[[int, int, str], None]
@@ -255,7 +254,6 @@ class RunAgent:
             series_cast=ctx.get("series_cast", "[]"),
             series_history=ctx.get("series_history", "[]"),
             series_position=ctx.get("series_position", 0),
-            audience=ctx.get("audience", AudienceMode.GENERAL.value),
             brief=ctx.get("brief", ""),
         )
 

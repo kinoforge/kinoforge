@@ -32,7 +32,6 @@ class ImageOptionsRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     aspect_ratio: str = "9:16"
-    mature: bool = False
     seed: Optional[int] = None
     apply_negative: bool = Field(
         default=False,
@@ -142,7 +141,6 @@ class VideoOptionsRequest(BaseModel):
     seconds: float = Field(gt=0, description="Seconds of film to buy for this clip.")
     resolution: int = Field(default=720, gt=0)
     aspect_ratio: str = "9:16"
-    mature: bool = False
     enhance: bool = Field(
         default=False, description="Rewrite the prompt through a text model before generation."
     )

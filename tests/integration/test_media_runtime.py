@@ -57,7 +57,7 @@ def _image_request(mode: str, **over) -> ImageRenderRequest:
         "story": {"style": "noir", "characters": [], "scenes": []},
         "scene": {"prompt": "a lighthouse"}, "rec": {"input": {}},
         "preset_keys": PRESET_KEYS, "pick": {"provider": "fal", "model": "flux"},
-        "options": {"aspect_ratio": "9:16", "mature": False, "seed": 7, "apply_negative": True},
+        "options": {"aspect_ratio": "9:16", "seed": 7, "apply_negative": True},
         "definitions": _image_bundle(),
     }
     return ImageRenderRequest(**{**base, **over})
@@ -133,7 +133,7 @@ def _video_request(**over) -> VideoRenderRequest:
         },
         "rec": {"input": {}}, "preset_keys": PRESET_KEYS,
         "pick": {"provider": "fal", "model": "seedance"},
-        "options": {"seconds": 5, "resolution": 720, "aspect_ratio": "9:16", "mature": False},
+        "options": {"seconds": 5, "resolution": 720, "aspect_ratio": "9:16"},
         "definitions": _image_bundle(),
     }
     return VideoRenderRequest(**{**base, **over})

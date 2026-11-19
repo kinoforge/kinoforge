@@ -427,3 +427,11 @@ def test_without_given_files_the_stage_is_the_writers():
     result = StageWriter(fake.ports(), FILED).write(RECORD, None, 0)
     assert result["stage"] == STAGE
     assert json.loads(fake.prompts[0][1])["given_files"] == []
+
+
+def test_an_answer_with_nothing_readable_may_be_asked_again_later():
+    from kinoforge.segments.animated.check import BoardCheck
+
+    assert BoardCheck.failed("unread", None) == {"ok": False, "error": "unread", "retry": True}
+    refused = BoardCheck.failed("bad", {"cards": []})
+    assert "retry" not in refused and refused["answer"] == {"cards": []}

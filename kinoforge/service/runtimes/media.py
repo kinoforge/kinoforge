@@ -49,7 +49,7 @@ class MediaUtils:
             references = []
         return VideoSpec(
             seconds=opts.seconds, resolution=opts.resolution, aspect_ratio=opts.aspect_ratio,
-            mature=opts.mature, image=cls.file(request.image_b64, request.image_url),
+            image=cls.file(request.image_b64, request.image_url),
             enhance=opts.enhance, enhance_style=opts.enhance_style, references=tuple(references),
             music=opts.music,
             last_frame=cls.file(request.last_image_b64, request.last_image_url),
@@ -133,7 +133,7 @@ class MediaRuntime:
         if request.reference_cast and not PromptText.shows_cast(request.scene, request.story):
             reference = None
         spec = ImageSpec(
-            aspect_ratio=opts.aspect_ratio, seed=opts.seed, mature=opts.mature,
+            aspect_ratio=opts.aspect_ratio, seed=opts.seed,
             reference=reference,
             enhance=opts.enhance,
             enhance_style=opts.enhance_style,
@@ -223,6 +223,7 @@ class MediaRuntime:
             out["enhance"] = infrelay.rewrites
         elif job.get("error"):
             out["error"] = str(job["error"])
+            out["failure"] = str(job.get("failure") or "")
             out["observed_limit"] = limit_from_error(RuntimeError(job["error"]))
         return out
 

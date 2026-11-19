@@ -46,7 +46,7 @@ CATALOG: Tuple[SegmentSpec, ...] = (
         execute_path="/v1/segments/clips/execute",
         features=(
             Feature("transcription", "Transcription",
-                    "Create multilingual timed transcripts through Infrelay.", "audio-lines"),
+                    "Create multilingual timed transcripts.", "audio-lines"),
             Feature("viral-moments", "Viral moment discovery",
                     "Find strong short-form moments using AI or offline analysis.", "scan-search"),
             Feature("moment-ranking", "Moment ranking",
@@ -84,10 +84,10 @@ CATALOG: Tuple[SegmentSpec, ...] = (
             Feature("character-consistency", "Character consistency",
                     "Maintain reusable character identity across generated scenes.", "users"),
             Feature("media-generation", "Scene media generation",
-                    "Generate images, video, voiceover, and music through Infrelay.",
+                    "Generate images, video and voiceover for each scene.",
                     "wand-sparkles"),
             Feature("video-assembly", "Video assembly",
-                    "Assemble scenes, narration, music, captions, and transitions.",
+                    "Assemble scenes, narration, captions, and transitions.",
                     "clapperboard", SegmentStatus.PLANNED),
         ),
         requirements=(

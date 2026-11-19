@@ -20,7 +20,6 @@ from kinoforge.observ import (
 from kinoforge.observ.config import default_level
 from kinoforge.observ.logger import SUCCESS, TRACE
 
-
 # --- KinoLogger facade ----------------------------------------------------
 
 def test_levels_capture_entries_including_success():
