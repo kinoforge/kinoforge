@@ -36,7 +36,7 @@ def test_low_quality_is_really_low():
 
 
 @pytest.mark.parametrize("source_ar, fill, marker", [
-    (16 / 9, None, "force_original_aspect_ratio=decrease,pad"),  # wider -> letterbox
+    (16 / 9, None, "force_original_aspect_ratio=increase,crop"),  # wider -> center crop
     (9 / 21, None, "boxblur"),                                    # taller -> blur pad
     (1080 / 1920, None, "scale=1080:1920,eq"),                    # same shape -> scale
     (9 / 16, FillStyle.BARS, "pad="),                             # forced bars

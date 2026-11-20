@@ -111,7 +111,7 @@ def test_cut_all_keeps_a_failed_cut_in_place_as_none(tmp_path):
 
 # --- formatting -----------------------------------------------------------
 
-def test_letterboxes_wide_source_into_portrait_with_audio(source, tmp_path):
+def test_crops_wide_source_into_portrait_with_audio(source, tmp_path):
     out = tmp_path / "portrait.mp4"
     assert ClipFormatter().format(source, out, "9:16", _SOURCE_AR)
     info = _streams(out)

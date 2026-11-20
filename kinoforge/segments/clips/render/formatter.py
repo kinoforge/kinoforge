@@ -25,7 +25,7 @@ class ClipFormatter:
     @classmethod
     def fit_filter(cls, size: Tuple[int, int], source_ar: float,
                    fill: Optional[FillStyle]) -> str:
-        """A forced fill wins; else same shape scales, wider letterboxes, taller gets a blur pad."""
+        """A forced fill wins; else same shape scales, wider is center-cropped, taller gets a blur pad."""
         width, height = size
         if fill is FillStyle.BLUR:
             return cls._blurred_pad(width, height)
@@ -35,8 +35,13 @@ class ClipFormatter:
         if abs(source_ar - target_ar) < 0.01:
             return f"scale={width}:{height},{Ffmpeg.GRADE}"
         if source_ar > target_ar:
-            return cls._letterbox(width, height)
+            return cls._center_crop(width, height)
         return cls._blurred_pad(width, height)
+
+    @staticmethod
+    def _center_crop(width: int, height: int) -> str:
+        return (f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+                f"crop={width}:{height},{Ffmpeg.GRADE}")
 
     @staticmethod
     def _letterbox(width: int, height: int) -> str:
