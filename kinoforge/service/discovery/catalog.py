@@ -39,8 +39,8 @@ class SegmentSpec:
 CATALOG: Tuple[SegmentSpec, ...] = (
     SegmentSpec(
         kind=JobKind.CLIPS,
-        name="Clips",
-        label="Viral clip generator",
+        name="Shorts",
+        label="Shorts from a long video",
         description="Find, rank, render, and format viral short-form moments from long video.",
         icon="scissors",
         execute_path="/v1/segments/clips/execute",
