@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Optional, Tuple
 
 from kinoforge.contract import JobKind
 from kinoforge.schemas import SegmentStatus
@@ -34,6 +34,7 @@ class SegmentSpec:
     features: Tuple[Feature, ...]
     requirements: Tuple[Requirement, ...]
     status: SegmentStatus = SegmentStatus.AVAILABLE
+    parent: Optional[JobKind] = None
 
 
 CATALOG: Tuple[SegmentSpec, ...] = (
@@ -144,6 +145,7 @@ CATALOG: Tuple[SegmentSpec, ...] = (
         description="Create recurring characters and connected multi-episode videos.",
         icon="list-video",
         execute_path="/v1/segments/series/plan",
+        parent=JobKind.STORY,
         features=(
             Feature("series-planning", "Series planning",
                     "Define a reusable premise, visual identity, and episode structure.",

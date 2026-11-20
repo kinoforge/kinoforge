@@ -47,6 +47,10 @@ class SegmentResponse(BaseModel):
         default=None,
         description="Execution endpoint when implemented.",
     )
+    parent: Optional[str] = Field(
+        default=None,
+        description="Segment this one is an engine of, shown under it rather than on its own.",
+    )
 
 
 class SegmentsResponse(BaseModel):

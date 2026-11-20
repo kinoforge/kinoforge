@@ -29,4 +29,5 @@ class SegmentCatalog:
             ],
             api_version="v1",
             execute_path=spec.execute_path,
+            parent=spec.parent,
         )

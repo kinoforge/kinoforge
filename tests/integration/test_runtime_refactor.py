@@ -194,6 +194,16 @@ def test_catalog_lists_four_segments_with_paths_and_planned_assembly():
     assert story["story-writing"] is SegmentStatus.AVAILABLE
 
 
+def test_series_is_an_engine_of_story_and_the_rest_stand_alone():
+    parents = {s.code_name: s.parent for s in SegmentCatalog.list().segments}
+    assert parents == {
+        JobKind.CLIPS: None,
+        JobKind.STORY: None,
+        JobKind.ANIMATED: None,
+        JobKind.SERIES: JobKind.STORY,
+    }
+
+
 def test_a_clip_is_queued_with_a_callback_url_and_the_video_payload(monkeypatch):
     sent = []
 
