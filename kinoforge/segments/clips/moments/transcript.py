@@ -5,6 +5,10 @@ from typing import Dict, List, Tuple
 
 from kinoforge.segments.clips.moments.moment import Moment
 
+_CLOSERS = r"\"')\]\u201d\u2019"
+_SENTENCE_END = re.compile(rf"[.!?\u2026][{_CLOSERS}]?$")
+_SENTENCE_BREAK = re.compile(rf"(?<=[.!?\u2026])\s+|(?<=[.!?\u2026][{_CLOSERS}])\s+")
+
 
 class TranscriptText:
     """Transcript utilities: boundary snapping, candidate windows, language guess."""
@@ -14,10 +18,11 @@ class TranscriptText:
              min_len: float = 0.0, max_len: float = 0.0) -> Tuple[float, float, str]:
         """(start, end, text) of [start, end] snapped onto whole segments and sized into
         [min_len, max_len], so a clip opens and closes on a complete sentence."""
-        segs = sorted((s for s in transcript if s.get("text")), key=lambda s: Moment(s).start)
+        segs = cls.sentences(
+            sorted((s for s in transcript if s.get("text")), key=lambda s: Moment(s).start))
         if not segs:
             return start, end, ""
-        first = max([i for i, s in enumerate(segs) if Moment(s).start <= start] or [0])
+        first = min(range(len(segs)), key=lambda i: abs(Moment(segs[i]).start - start))
         last = next((i for i in range(first, len(segs)) if Moment(segs[i]).end >= end),
                     len(segs) - 1)
         while min_len > 0 and cls._span(segs, first, last) < min_len and (
@@ -30,6 +35,50 @@ class TranscriptText:
             last -= 1
         text = " ".join((s.get("text") or "").strip() for s in segs[first:last + 1]).strip()
         return Moment(segs[first]).start, Moment(segs[last]).end, text
+
+    @classmethod
+    def sentences(cls, segs: List[Dict]) -> List[Dict]:
+        pieces = [piece for seg in segs for piece in cls._pieces(seg)]
+        if not any(cls._ends(piece["text"]) for piece in pieces):
+            return segs
+        sentences: List[Dict] = []
+        current: Dict | None = None
+        for piece in pieces:
+            current = dict(piece) if current is None else {
+                "start": current["start"], "end": piece["end"],
+                "text": f"{current['text']} {piece['text']}"}
+            if cls._ends(piece["text"]):
+                sentences.append(current)
+                current = None
+        if current:
+            sentences.append(current)
+        return sentences
+
+    @classmethod
+    def _pieces(cls, seg: Dict) -> List[Dict]:
+        words = [w for w in seg.get("words") or []
+                 if w.get("start") is not None and w.get("end") is not None]
+        if words:
+            groups: List[List[Dict]] = [[]]
+            for word in words:
+                groups[-1].append(word)
+                if cls._ends(str(word.get("word") or "")):
+                    groups.append([])
+            return [{"start": float(g[0]["start"]), "end": float(g[-1]["end"]),
+                     "text": " ".join(str(w.get("word") or "").strip() for w in g)}
+                    for g in groups if g]
+        parts = [p for p in _SENTENCE_BREAK.split((seg.get("text") or "").strip()) if p]
+        start, span = Moment(seg).start, Moment(seg).span
+        total, done, pieces = sum(len(p) for p in parts) or 1, 0, []
+        for part in parts:
+            begin = start + span * done / total
+            done += len(part)
+            pieces.append({"start": begin, "end": start + span * done / total, "text": part})
+        return pieces
+
+    @staticmethod
+    def _ends(text: str) -> bool:
+        return bool(_SENTENCE_END.search(text.strip()))
 
     @classmethod
     def windows(cls, transcript: List[Dict], min_len: float, max_len: float) -> List[Dict]:

@@ -53,6 +53,7 @@ def test_long_transcript_is_split_by_time_with_overlap_and_no_tail_lost():
     segs = [{"start": float(i), "end": float(i + 1), "text": "x" * 200} for i in range(60)]
     prompts: list = []
     _finder(context_window=1, prompts=prompts).find(segs, MomentSpec(5, 3, 1))
+    prompts.sort(key=lambda p: int(p["part"].split("part ")[1].split(" ")[0]))
     assert len(prompts) > 1
     assert "part 1 of" in prompts[0]["part"] and "0:00-" in prompts[0]["part"]
     assert prompts[-1]["transcript"].splitlines()[-1].startswith("[59.0]")

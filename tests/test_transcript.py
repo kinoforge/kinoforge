@@ -38,6 +38,38 @@ def test_snap_trims_long_pick_to_max_length():
     assert text == "a"
 
 
+def _lines():
+    return [
+        {"start": 0, "end": 4, "text": "He said the world would never see"},
+        {"start": 4, "end": 8, "text": "it of the riches. And lo and behold,"},
+        {"start": 8, "end": 12, "text": "look what happened. The people"},
+        {"start": 12, "end": 16, "text": "who believed worked hard. It was beautifully designed,"},
+        {"start": 16, "end": 20, "text": "simple and loved."},
+    ]
+
+
+def test_snap_opens_and_closes_on_whole_sentences_inside_caption_lines():
+    start, end, text = snap_to_transcript(_lines(), 4.0, 13.0)
+    assert 4 < start < 8 and 12 < end < 16
+    assert text.startswith("And lo and behold,")
+    assert text.endswith("worked hard.")
+
+
+def test_snap_never_stops_on_a_caption_line_that_ends_mid_sentence():
+    end, text = snap_to_transcript(_lines(), 4.0, 18.0)[1:]
+    assert end == 20
+    assert text.endswith("beautifully designed, simple and loved.")
+
+
+def test_snap_cuts_on_word_timings_when_the_line_has_them():
+    line = [{"start": 0, "end": 4, "text": "Done. Next one", "words": [
+        {"word": "Done.", "start": 0.0, "end": 0.6},
+        {"word": "Next", "start": 1.4, "end": 1.8},
+        {"word": "one.", "start": 2.0, "end": 2.5},
+    ]}]
+    assert snap_to_transcript(line, 1.2, 3.0) == (1.4, 2.5, "Next one.")
+
+
 # --- windows --------------------------------------------------------------
 
 def _speech(n):

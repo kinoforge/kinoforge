@@ -50,7 +50,8 @@ class OfflineMomentFinder(MomentFinder):
     @staticmethod
     def candidates(transcript: List[Dict], spec: MomentSpec) -> List[Dict]:
         """Transcript windows that stand alone; every window when none do."""
-        windows = TranscriptText.windows(transcript, spec.min_len, spec.max_len)
+        windows = TranscriptText.windows(
+            TranscriptText.sentences(transcript), spec.min_len, spec.max_len)
         active().info(f"  {len(windows)} candidate windows")
         return MomentFilter.run(windows, transcript) or windows
 
